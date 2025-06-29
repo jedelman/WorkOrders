@@ -1,0 +1,106 @@
+Category Code,Category Description
+BDG110,Embankment
+BDG120,Footings
+BDG130,Guardrail
+BDG15,Deck
+BDG150,Median
+BDG165,Sidewalk
+BDG20,Lights
+BDG25,Railing
+BDG30,Median
+BDG35,Abutment
+BDG40,Waterfront Structures
+BDG45,Approach
+BDG55,Cap
+BDG60,Column
+BDG65,Curb & Gutter
+BDG75,Girder or Beam
+BDG90,Sidewalk
+BDG95,Slope Protection
+ENV35,Illicit Discharge / Spill
+ENV55,Miss Utility Tracking
+FOR,Forestry
+FOR10,Nursery
+FOR15,Trees
+LND,Landscape
+LND10,Athletic Facilities
+LND15,Beaches
+LND20,Bike Trails
+LND25,City Buildings
+LND30,Norfolk Public Schools
+LND35,Park
+LND40,Playgrounds
+LND45,Pump Stations
+LND50,Roadsides / Medians
+LND55,Small Equipment Repair
+LND60,Unimproved Right-of-Way
+LND65,Vacant Lots
+MSC10,Extreme Weather Event
+MSC15,Speciality Maintenance
+MSC20,Yard Labor
+SBR,Streets_Bridges
+SBR05,Administrative
+SBR10,Special Event
+SPE10,City Events
+STM,Stormwater
+STM03,Aerators
+STM06,Air Sparging
+STM09,Backflow Preventer
+STM12,BMP
+STM15,Catch Basin
+STM21,Driveway Pipe
+STM24,Drop Inlet
+STM27,Flood Gate
+STM30,Flood Wall
+STM33,Generator
+STM36,Manhole
+STM39,Offroad Ditch
+STM42,Outfall
+STM45,Outfall Lights
+STM48,Outfall Signs
+STM51,Outfall Valve
+STM54,Pipe (SW)
+STM57,Portable Pump
+STM60,Pump Station (SW)
+STM63,Pumps (Within Pump Station)
+STM66,Rain Gauge
+STM69,Roadside Ditch
+STM75,Weir
+STM78,Yard Basin
+STM80,Pump Station Equipment
+STR,Streets
+STR05,ADA Ramp
+STR10,Curb/gutter
+STR15,Driveway
+STR20,Median
+STR25,New Installation
+STR30,Sidewalk
+STR35,Street Segment
+SWP10,Bike Lanes
+SWP15,Curb & Gutter
+SWP20,Dead Ends
+SWP35,Parking Lots
+SWP40,Vacant Lots
+TRF,Traffic
+TRF05,CCTV
+TRF10,Communications
+TRF15,Conduit
+TRF20,Control Cabinet
+TRF25,Detection
+TRF30,Encroachments
+TRF35,Junction Box
+TRF40,Pavement Marking
+TRF45,Sign Shop
+TRF50,Signal Timing
+TRF55,Signalized Signs
+TRF60,Signs
+TRF65,Special Events
+TRF70,Street Lighting
+TRF75,Traffic Safety
+TRF80,Traffic Signal
+TRF85,Traffic Signal Head
+TRF90,Traffic Signal Pole
+TRF95,Vehicle
+WTP25,Lakes / Dams
+WWT20,Service Line
+WWT25,Sewer Main
