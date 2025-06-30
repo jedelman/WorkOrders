@@ -1,11 +1,13 @@
-# python3 -m streamlit run sandbox-streamlit.py
 import streamlit as st
 from sodapy import Socrata
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from string import Template
 
 app_token =  st.secrets["app_token"]
+
+st.session_state
 
 @st.cache_resource
 def get_client():
@@ -23,39 +25,87 @@ def get_civic_leagues():
 def get_status_codes():
     return np.load("status_descriptions.npy", allow_pickle=True)
 
-area = st.sidebar.multiselect("Area", options=['Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
+def qp_init(key, default):
+    if key not in st.session_state and key in st.query_params:
+        st.session_state[key] = st.query_params.get_all(key)
+    else:
+        st.session_state[key] = default
+    return st.session_state[key]
+
+def qp_set_on_search(key):
+    if key in st.session_state:
+        st.query_params[key] = st.session_state[key]
+        return st.query_params[key]
+
+query = ""
+
+param_index = [
+    ('area', []), 
+    ('cats', []), 
+    ('status_codes', []), 
+    ('dates', [datetime.today(), datetime.today() + timedelta(days=7)])]
+
+[qp_init(key, default) for (key, default) in param_index]
+    
+st.session_state["area"] = area = st.sidebar.multiselect("Area", options=['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
        'Street Sweeping', 'Bridges', 'Environmental', 'Streets_Bridges',
        'Wastewater', 'Miscellaneous', 'Water Distribution',
-       'Special Events'])
+       'Special Events'], default=st.session_state.get("area"))
 
-cats = st.sidebar.multiselect("Category", options=get_categories())
-status_codes = st.sidebar.multiselect("Status Codes", options=get_status_codes())
-startdate, enddate = st.sidebar.date_input("Date", value=(datetime.today(), datetime.today() + timedelta(days=7)))
+st.session_state["cats"] = cats = st.sidebar.multiselect("Category", options=get_categories(), default=st.session_state['cats'])
+
+st.session_state["status_codes"] = status_codes = st.sidebar.multiselect("Status Codes", options=get_status_codes(), default=st.session_state['status_codes'])
+
+st.session_state["dates"] = dates = st.sidebar.date_input("Date", value=st.session_state["dates"])
+
+match len(dates):
+    case 2:
+        startdate, enddate = dates
+        query += f"start_date between '{startdate.isoformat()}' and '{enddate.isoformat()}'"
+    case 1:
+        date = dates[0]
+        query += f"start_date = '{date.isoformat()}'"
+    case 0:
+        query += ""
+
 civicleagues = st.sidebar.multiselect("Civic League", options = get_civic_leagues())
 
-work_orders = "qzfe-wj25"
-
-query = f"start_date between '{startdate.isoformat()}' and '{enddate.isoformat()}'"
-
-if len(civicleagues) > 0:
-    cl = ', '.join([f"'{x}'" for x in civicleagues])
-    query += f" and civic_league in ({cl})"
-
-if len(area) > 0:
-    areas = ', '.join([f"'{x}'" for x in area])
-    query +=  f" and area in({areas})"
-
-if len(status_codes) > 0:
-    status_codes = ', '.join([f"'{x}'" for x in status_codes])
-    query += f" and status_description in ({status_codes})"
-
+for (column, opts) in [
+    ("civic_league", civicleagues),
+    ("area", area),
+    ("status_description", status_codes),
+    ("category_description", cats)]:
+    if len(opts) > 0:
+        optstr = ', '.join([f"'{x}'" for x in opts])
+        query += f" and {column} in ({optstr})"
 
 with st.sidebar.popover("", icon=":material/help:"):
     query
 
 client = get_client()
 
-try:        
+md_template = Template(open("row_template.md").read())
+
+def timefmt(str):
+    return datetime.fromisoformat(str).strftime("%m/%d/%Y")
+
+def display_items(items):
+    if len(items) == 0:
+        return "nothing to show"
+    
+    with st.expander("full dataset"):
+        items
+    for row in items.to_dict('records'):
+        row["start_date_fmt"] = timefmt(row["start_date"])
+        row["status_datetime_fmt"] = timefmt(row["status_datetime"])
+        row["created_datetime_fmt"] = timefmt(row["created_datetime"])
+        st.markdown(md_template.substitute(row))    
+
+try:
+    work_orders = "qzfe-wj25"
+
+    [qp_set_on_search(key) for key in param_index]
+
     items = pd.DataFrame(client.get(work_orders, where=query))
 
     f"got {items.index.size} work orders"
@@ -63,6 +113,6 @@ try:
     if(items.index.size > 0):
         f"total cost: {items['total_cost'].astype(np.float64).sum()}"
     
-    items
+    display_items(items)
 except Exception as ex:
     ex
