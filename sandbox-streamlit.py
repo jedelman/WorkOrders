@@ -5,7 +5,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
-app_token =  "6Te8cUPiKLtDiuU9kxxMaTV5y"
+app_token =  st.secrets["app_token"]
+
 @st.cache_resource
 def get_client():
     return Socrata("data.norfolk.gov", app_token)
