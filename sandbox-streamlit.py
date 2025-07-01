@@ -175,7 +175,6 @@ try:
     wocnt.metric("Work orders", value=items.index.size)
     
     if(items.index.size > 0):
-        cost.metric("Total Cost", value=items['total_cost'].astype(np.float64).sum())
         itemindex = itemcnt.slider("browse items", key="itemindex", max_value=items.index.size)
         selected = items.loc[[itemindex]]
         debugcnt.write(items)
