@@ -44,13 +44,20 @@ query = ""
 
 param_index = [
     'area', 
-    'cats',  
+    'category_description',  
     'status_codes', 
     'civic_league', 
     'dates' ]
 
 debugcnt.title("qp init")
 debugcnt.write([qp_init(key) for key in param_index])
+if("dates" in st.session_state):
+    if(type(st.session_state.dates) is str):
+        st.session_state.dates = datetime(st.session_state.dates)
+    if(type(st.session_state.dates) is list):
+        if(type(st.session_state.dates[0]) is str):
+            st.session_state.dates = [datetime.strptime(date, "%Y-%m-%d") for date in list(st.session_state.dates)]
+
 debugcnt.write([st.session_state[key] for key in param_index if key in st.session_state])
 
 st.sidebar.multiselect("Area", key="area", options=['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
@@ -60,9 +67,6 @@ st.sidebar.multiselect("Area", key="area", options=['', 'Forestry', 'Landscape',
 st.sidebar.multiselect("Category", key="category_description", options=get_categories())
 st.sidebar.multiselect("Status Codes", key="status_code", options=get_status_codes())
 
-if("dates" in st.session_state):
-    if(type(st.session_state.dates) is str):
-        st.session_state.dates = datetime(st.session_state.dates)
             
 
 st.sidebar.date_input("Date", key="dates")
@@ -94,8 +98,6 @@ for column in [
 debugcnt.write(query)
 
 client = get_client()
-
-md_template = Template(open("row_template.md").read())
 
 def datefmt(datestr):
     return datetime.fromisoformat(datestr).strftime("%m/%d/%Y") if type(datestr) is str else None
@@ -175,7 +177,7 @@ try:
     wocnt.metric("Work orders", value=items.index.size)
     
     if(items.index.size > 0):
-        itemindex = itemcnt.slider("browse items", key="itemindex", max_value=items.index.size)
+        itemindex = itemcnt.number_input("browse items", key="itemindex", min_value=0, max_value=items.index.size)
         selected = items.loc[[itemindex]]
         debugcnt.write(items)
         debugcnt.write(f"item index: {itemindex}")
