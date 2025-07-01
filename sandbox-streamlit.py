@@ -39,7 +39,7 @@ def qp_init(key, default):
 def qp_set_on_search(key):
     if key in st.session_state:
         st.query_params[key] = st.session_state[key]
-        return st.query_params[key]
+    return st.query_params.get_all(key)
 
 query = ""
 
@@ -110,7 +110,7 @@ try:
     work_orders = "qzfe-wj25"
     items = None
     debugcnt.title("query info")
-    debugcnt.write([qp_set_on_search(key) for key in param_index])
+    debugcnt.write([qp_set_on_search(key) for key,default in param_index])
 
     items = pd.DataFrame(client.get(work_orders, where=query))
 
