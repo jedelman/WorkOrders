@@ -67,15 +67,11 @@ def YTD_click():
 st.sidebar.button("YTD", on_click=YTD_click)
 
 if "dates" in st.session_state:
-    match len(st.session_state["dates"]):
-        case 2:
-            startdate, enddate = st.session_state["dates"]
+    match st.session_state["dates"]:
+        case startdate, enddate:
             query += f"start_date between '{startdate.isoformat()}' and '{enddate.isoformat()}'"
-        case 1:
-            date = st.session_state["dates"]
+        case date:
             query += f"start_date = '{date.isoformat()}'"
-        case 0:
-            query += ""
 
 st.sidebar.multiselect("Civic League", key="civic_league", options = get_civic_leagues())
 
