@@ -31,7 +31,7 @@ def get_civic_leagues():
 def get_status_codes():
     return np.load("status_descriptions.npy", allow_pickle=True)
 
-def qp_init(key, default):
+def qp_init(key):
     if key not in st.session_state and key in st.query_params:
         st.session_state[key] = st.query_params.get_all(key)
 
@@ -43,15 +43,15 @@ def qp_set_on_search(key):
 query = ""
 
 param_index = [
-    ('area', []), 
-    ('cats', []), 
-    ('status_codes', []),
-    ('civic_league', []),
-    ('dates', [])]
+    'area', 
+    'cats',  
+    'status_codes', 
+    'civic_league', 
+    'dates' ]
 
 debugcnt.title("qp init")
-debugcnt.write([qp_init(key, default) for (key, default) in param_index])
-debugcnt.write([st.session_state[key] for (key, _) in param_index if key in st.session_state])
+debugcnt.write([qp_init(key) for key in param_index])
+debugcnt.write([st.session_state[key] for key in param_index if key in st.session_state])
 
 st.sidebar.multiselect("Area", key="area", options=['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
        'Street Sweeping', 'Bridges', 'Environmental', 'Streets_Bridges',
@@ -59,6 +59,12 @@ st.sidebar.multiselect("Area", key="area", options=['', 'Forestry', 'Landscape',
        'Special Events'])
 st.sidebar.multiselect("Category", key="category_description", options=get_categories())
 st.sidebar.multiselect("Status Codes", key="status_code", options=get_status_codes())
+
+if("dates" in st.session_state):
+    if(type(st.session_state.dates) is str):
+        st.session_state.dates = datetime(st.session_state.dates)
+            
+
 st.sidebar.date_input("Date", key="dates")
 
 def YTD_click():
@@ -70,7 +76,8 @@ if "dates" in st.session_state:
     match st.session_state["dates"]:
         case startdate, enddate:
             query += f"start_date between '{startdate.isoformat()}' and '{enddate.isoformat()}'"
-        case date:
+        case datetime():
+            date = st.session_state["dates"]
             query += f"start_date = '{date.isoformat()}'"
 
 st.sidebar.multiselect("Civic League", key="civic_league", options = get_civic_leagues())
@@ -91,10 +98,10 @@ client = get_client()
 md_template = Template(open("row_template.md").read())
 
 def timefmt(str):
-    return datetime.fromisoformat(str).strftime("%m/%d/%Y")
+    return datetime.fromisoformat(str).strftime("%m/%d/%Y") if type(str) is str else None
 
 def display_items(items):
-    if len(items) == 0:
+    if items is None or len(items) == 0:
         return "nothing to show"
 
     for row in items.to_dict('records'):
@@ -107,22 +114,35 @@ def display_items(items):
             itemcnt.write(Ex)
         with itemcnt.expander("raw data"):
             row
-        
+
+
+
+@st.cache_data
+def get_items(query):
+    work_orders = "qzfe-wj25"        
+    return client.get(work_orders, where=query)
 
 try:
-    work_orders = "qzfe-wj25"
     items = None
     debugcnt.title("query info")
-    debugcnt.write([qp_set_on_search(key) for key,default in param_index])
+    debugcnt.write([qp_set_on_search(key) for key in param_index])
 
-    items = pd.DataFrame(client.get(work_orders, where=query))
+
+    items = pd.DataFrame(get_items(query))
+    itemindex = itemcnt.slider("browse items", key="itemindex", max_value=items.index.size)
     wocnt, cost = header.columns(2)
     wocnt.metric("Work orders", value=items.index.size)
     
     if(items.index.size > 0):
         cost.metric("Total Cost", value=items['total_cost'].astype(np.float64).sum())
-    
-    display_items(items)
+    selected = items.loc[[itemindex]]
+    debugcnt.write(items)
+    debugcnt.write(f"item index: {itemindex}")
+    debugcnt.write("selected items")
+    debugcnt.write(selected)
+
+    display_items(selected)
+
 except Exception as ex:
     itemcnt.error("Error encountered!")
     debugcnt.write(ex)
