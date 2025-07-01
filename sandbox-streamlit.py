@@ -7,7 +7,11 @@ from string import Template
 
 app_token =  st.secrets["app_token"]
 
-st.session_state
+itemcnt, debugcnt = st.tabs(["items", "debug"])
+
+with debugcnt:
+    debugcnt.title("session state")
+    debugcnt.write(st.session_state)
 
 @st.cache_resource
 def get_client():
@@ -45,7 +49,8 @@ param_index = [
     ('status_codes', []), 
     ('dates', [datetime.today(), datetime.today() + timedelta(days=7)])]
 
-[qp_init(key, default) for (key, default) in param_index]
+debugcnt.title("qp init")
+debugcnt.write([qp_init(key, default) for (key, default) in param_index])
     
 st.session_state["area"] = area = st.sidebar.multiselect("Area", options=['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
        'Street Sweeping', 'Bridges', 'Environmental', 'Streets_Bridges',
@@ -79,8 +84,7 @@ for (column, opts) in [
         optstr = ', '.join([f"'{x}'" for x in opts])
         query += f" and {column} in ({optstr})"
 
-with st.sidebar.popover("", icon=":material/help:"):
-    query
+debugcnt.write(query)
 
 client = get_client()
 
@@ -93,18 +97,20 @@ def display_items(items):
     if len(items) == 0:
         return "nothing to show"
     
-    with st.expander("full dataset"):
-        items
     for row in items.to_dict('records'):
         row["start_date_fmt"] = timefmt(row["start_date"])
         row["status_datetime_fmt"] = timefmt(row["status_datetime"])
         row["created_datetime_fmt"] = timefmt(row["created_datetime"])
-        st.markdown(md_template.substitute(row))    
+        itemcnt.markdown(md_template.substitute(row))
+        with itemcnt.expander("raw data"):
+            row
+        
 
 try:
     work_orders = "qzfe-wj25"
-
-    [qp_set_on_search(key) for key in param_index]
+    items = None
+    debugcnt.title("query info")
+    debugcnt.write([qp_set_on_search(key) for key in param_index])
 
     items = pd.DataFrame(client.get(work_orders, where=query))
 
@@ -115,4 +121,5 @@ try:
     
     display_items(items)
 except Exception as ex:
-    ex
+    itemcnt.error("Error encountered!")
+    debugcnt.write(ex)
