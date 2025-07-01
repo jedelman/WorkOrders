@@ -1,11 +1,15 @@
 ---
 
-### $work_order_number $primary_task_description
-Civic League: ${civic_league}, Street: $street
-
-$problem_description
+### $work_order_number
+Problem: $problem_description
 
 Priorty: $priority
+
+Action: $primary_task_description $$$total_cost
+
+Category: $category_description
+
+Civic League: ${civic_league}, Street: $street
 
 $status_description $status_datetime_fmt
 

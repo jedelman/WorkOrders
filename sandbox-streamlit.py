@@ -7,6 +7,8 @@ from string import Template
 
 app_token =  st.secrets["app_token"]
 
+header = st.container()
+
 itemcnt, debugcnt = st.tabs(["items", "debug"])
 
 with debugcnt:
@@ -32,9 +34,6 @@ def get_status_codes():
 def qp_init(key, default):
     if key not in st.session_state and key in st.query_params:
         st.session_state[key] = st.query_params.get_all(key)
-    else:
-        st.session_state[key] = default
-    return st.session_state[key]
 
 def qp_set_on_search(key):
     if key in st.session_state:
@@ -46,42 +45,46 @@ query = ""
 param_index = [
     ('area', []), 
     ('cats', []), 
-    ('status_codes', []), 
-    ('dates', [datetime.today(), datetime.today() + timedelta(days=7)])]
+    ('status_codes', []),
+    ('civic_league', []),
+    ('dates', [])]
 
 debugcnt.title("qp init")
 debugcnt.write([qp_init(key, default) for (key, default) in param_index])
-    
-st.session_state["area"] = area = st.sidebar.multiselect("Area", options=['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
+debugcnt.write([st.session_state[key] for (key, _) in param_index])
+
+st.sidebar.multiselect("Area", key="area", options=['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
        'Street Sweeping', 'Bridges', 'Environmental', 'Streets_Bridges',
        'Wastewater', 'Miscellaneous', 'Water Distribution',
-       'Special Events'], default=st.session_state.get("area"))
+       'Special Events'])
+st.sidebar.multiselect("Category", key="category_description", options=get_categories())
+st.sidebar.multiselect("Status Codes", key="status_code", options=get_status_codes())
+st.sidebar.date_input("Date", key="dates")
 
-st.session_state["cats"] = cats = st.sidebar.multiselect("Category", options=get_categories(), default=st.session_state['cats'])
+def YTD_click():
+    st.session_state["dates"] = [datetime(year = datetime.now().year, month=1, day=1) ,datetime.today()]
 
-st.session_state["status_codes"] = status_codes = st.sidebar.multiselect("Status Codes", options=get_status_codes(), default=st.session_state['status_codes'])
+st.sidebar.button("YTD", on_click=YTD_click)
 
-st.session_state["dates"] = dates = st.sidebar.date_input("Date", value=st.session_state["dates"])
-
-match len(dates):
+match len(st.session_state["dates"]):
     case 2:
-        startdate, enddate = dates
+        startdate, enddate = st.session_state["dates"]
         query += f"start_date between '{startdate.isoformat()}' and '{enddate.isoformat()}'"
     case 1:
-        date = dates[0]
+        date = st.session_state["dates"]
         query += f"start_date = '{date.isoformat()}'"
     case 0:
         query += ""
 
-civicleagues = st.sidebar.multiselect("Civic League", options = get_civic_leagues())
+st.sidebar.multiselect("Civic League", key="civic_league", options = get_civic_leagues())
 
-for (column, opts) in [
-    ("civic_league", civicleagues),
-    ("area", area),
-    ("status_description", status_codes),
-    ("category_description", cats)]:
-    if len(opts) > 0:
-        optstr = ', '.join([f"'{x}'" for x in opts])
+for column in [
+    "civic_league",
+    "area",
+    "status_description", 
+    "category_description",]:
+    if column in st.session_state and len(st.session_state[column]) > 0:
+        optstr = ', '.join([f"'{x}'" for x in st.session_state[column]])
         query += f" and {column} in ({optstr})"
 
 debugcnt.write(query)
@@ -96,12 +99,15 @@ def timefmt(str):
 def display_items(items):
     if len(items) == 0:
         return "nothing to show"
-    
+
     for row in items.to_dict('records'):
         row["start_date_fmt"] = timefmt(row["start_date"])
         row["status_datetime_fmt"] = timefmt(row["status_datetime"])
         row["created_datetime_fmt"] = timefmt(row["created_datetime"])
-        itemcnt.markdown(md_template.substitute(row))
+        try:
+            itemcnt.markdown(md_template.safe_substitute(row))
+        except Exception as Ex:
+            itemcnt.write(Ex)
         with itemcnt.expander("raw data"):
             row
         
@@ -113,11 +119,11 @@ try:
     debugcnt.write([qp_set_on_search(key) for key,default in param_index])
 
     items = pd.DataFrame(client.get(work_orders, where=query))
-
-    f"got {items.index.size} work orders"
-
+    wocnt, cost = header.columns(2)
+    wocnt.metric("Work orders", value=items.index.size)
+    
     if(items.index.size > 0):
-        f"total cost: {items['total_cost'].astype(np.float64).sum()}"
+        cost.metric("Total Cost", value=items['total_cost'].astype(np.float64).sum())
     
     display_items(items)
 except Exception as ex:
