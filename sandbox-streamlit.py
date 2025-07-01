@@ -97,25 +97,67 @@ client = get_client()
 
 md_template = Template(open("row_template.md").read())
 
-def timefmt(str):
-    return datetime.fromisoformat(str).strftime("%m/%d/%Y") if type(str) is str else None
+def datefmt(datestr):
+    return datetime.fromisoformat(datestr).strftime("%m/%d/%Y") if type(datestr) is str else None
 
 def display_items(items):
     if items is None or len(items) == 0:
         return "nothing to show"
 
     for row in items.to_dict('records'):
-        row["start_date_fmt"] = timefmt(row["start_date"])
-        row["status_datetime_fmt"] = timefmt(row["status_datetime"])
-        row["created_datetime_fmt"] = timefmt(row["created_datetime"])
+        row["start_date_fmt"] = datefmt(row["start_date"])
+        row["status_datetime_fmt"] = datefmt(row["status_datetime"])
+        row["created_datetime_fmt"] = datefmt(row["created_datetime"])
         try:
-            itemcnt.markdown(md_template.safe_substitute(row))
+            renderitem(row)
         except Exception as Ex:
             itemcnt.write(Ex)
-        with itemcnt.expander("raw data"):
-            row
+        
 
+def renderitem(row):
+    rowcnt, debugrowcnt = itemcnt.tabs(["work order", "raw data"])
+    debugrowcnt.write(row)
+    rowcnt.title(row.get("work_order_number"))
+    rowcnt.caption("work order number")
+    cols = rowcnt.columns(3)
+    def setstate(key, newstate):
+        st.session_state[key] = newstate
+    
 
+    cat = row.get("category_description")
+    cols[0].button(cat, on_click=setstate, args=["category_description", [cat]])
+    cols[0].caption("Category")
+    cols[1].write(row.get("primary_task_description"))
+    cols[1].caption("Action")
+    cols[2].write(row.get("total_cost"))
+    cols[2].caption("Total Cost")
+
+    cols = rowcnt.columns(3)
+    cols[0].write(row.get("created_datetime_fmt"))
+    cols[0].caption("Created")
+    cols[1].write(row.get("start_date_fmt"))
+    cols[1].caption("Started")
+    cols[2].write(row.get("status_description"))
+    cols[2].write(row.get("status_datetime_fmt"))
+    cols[2].caption("Updated")
+    
+
+    cols = rowcnt.columns(3)
+    cols[0].write(row.get('problem_description'))
+    cols[0].caption("Problem")
+    cols[1].write(row.get("priority"))
+    cols[1].caption("Priority")
+    
+    cols = rowcnt.columns(3)
+    cl = row.get("civic_league")
+    if type(cl) is str:
+        cols[0].button(cl, on_click=setstate, args=["civic_league", [cl]])
+    else:
+        cols[0].write(cl)
+    cols[0].caption("Civic League")
+    cols[1].write(row.get("street"))
+    cols[1].caption("Street")
+        
 
 @st.cache_data
 def get_items(query):
@@ -129,19 +171,19 @@ try:
 
 
     items = pd.DataFrame(get_items(query))
-    itemindex = itemcnt.slider("browse items", key="itemindex", max_value=items.index.size)
     wocnt, cost = header.columns(2)
     wocnt.metric("Work orders", value=items.index.size)
     
     if(items.index.size > 0):
         cost.metric("Total Cost", value=items['total_cost'].astype(np.float64).sum())
-    selected = items.loc[[itemindex]]
-    debugcnt.write(items)
-    debugcnt.write(f"item index: {itemindex}")
-    debugcnt.write("selected items")
-    debugcnt.write(selected)
+        itemindex = itemcnt.slider("browse items", key="itemindex", max_value=items.index.size)
+        selected = items.loc[[itemindex]]
+        debugcnt.write(items)
+        debugcnt.write(f"item index: {itemindex}")
+        debugcnt.write("selected items")
+        debugcnt.write(selected)
 
-    display_items(selected)
+        display_items(selected)
 
 except Exception as ex:
     itemcnt.error("Error encountered!")
