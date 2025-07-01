@@ -51,7 +51,7 @@ param_index = [
 
 debugcnt.title("qp init")
 debugcnt.write([qp_init(key, default) for (key, default) in param_index])
-debugcnt.write([st.session_state[key] for (key, _) in param_index])
+debugcnt.write([st.session_state[key] for (key, _) in param_index if key in st.session_state])
 
 st.sidebar.multiselect("Area", key="area", options=['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
        'Street Sweeping', 'Bridges', 'Environmental', 'Streets_Bridges',
