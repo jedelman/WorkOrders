@@ -67,6 +67,13 @@ def multiselect_query(param):
     optstr = ', '.join([f"'{x}'" for x in selections])
     return f"{param.name} in ({optstr})"
 
+def text_query(param):
+    val = st.session_state[param.name]
+    if(val == '' or val is None):
+        return ''
+    
+    return f"{param.name} like upper('{val}')"
+
 area = SearchParam('area', lambda _: searchform.multiselect("Area", key=_.name, options=areas), multiselect_query)
 categories = SearchParam('category_description', 
                          lambda _: searchform.multiselect("Category", key=_.name, options=get_categories()),
@@ -77,6 +84,9 @@ status_codes = SearchParam('status_code',
 civic_league = SearchParam('civic_league', 
                            lambda _: searchform.multiselect("Civic League", key=_.name, options = get_civic_leagues()),
                            multiselect_query)
+street = SearchParam('street', 
+                     lambda _: searchform.text_input("Street", key=_.name),
+                     text_query)
 
 def date_query(self):
     if self.name in st.session_state:
@@ -96,10 +106,11 @@ def date_widgets(self):
 dates = SearchParam('dates', date_widgets, date_query)
 
 param_index = [
-    area, 
-    categories,  
+    area,
+    categories,
     status_codes, 
     civic_league, 
+    street,
     dates
     ]
 
@@ -148,6 +159,7 @@ def display_items(items):
 
 def renderitem(row):
     rowcnt, debugrowcnt = itemcnt.tabs(["work order", "raw data"])
+    rowid = row["work_order_number"]
     debugrowcnt.write(row)
     rowcnt.title(row.get("work_order_number"))
     rowcnt.caption("work order number")
@@ -157,7 +169,7 @@ def renderitem(row):
     
 
     cat = row.get("category_description")
-    cols[0].button(cat, on_click=setstate, args=["category_description", [cat]])
+    cols[0].button(cat, key=f"{rowid}_cat_set", on_click=setstate, args=["category_description", [cat]])
     cols[0].caption("Category")
     cols[1].write(row.get("primary_task_description"))
     cols[1].caption("Action")
@@ -183,7 +195,7 @@ def renderitem(row):
     cols = rowcnt.columns(3)
     cl = row.get("civic_league")
     if type(cl) is str:
-        cols[0].button(cl, on_click=setstate, args=["civic_league", [cl]])
+        cols[0].button(cl, key=f"{rowid}_set_cl", on_click=setstate, args=["civic_league", [cl]])
     else:
         cols[0].write(cl)
     cols[0].caption("Civic League")
@@ -194,21 +206,43 @@ def renderitem(row):
 @st.cache_data
 def get_items(query):
     work_orders = "qzfe-wj25"
-    return client.get(work_orders, where=' and '.join(query))
+    return pd.DataFrame(client.get(work_orders, where=' and '.join(query)))
+
+def nextpage():
+    if("page" in st.session_state):
+        st.session_state.page+=1
+    else:
+        st.session_state.page = 0
+
+def prevpage():
+    if("page" in st.session_state):
+        st.session_state.page-=1
+    else:
+        st.session_state.page = 0
 
 try:
     items = None
 
+    items = get_items(query)
 
-    items = pd.DataFrame(get_items(query))
     wocnt, cost = header.columns(2)
     wocnt.metric("Work orders", value=items.index.size)
     
     if(items.index.size > 0):
-        itemindex = itemcnt.number_input("browse items", key="itemindex", min_value=0, max_value=items.index.size)
-        selected = items.loc[[itemindex]]
+        if("page" not in st.session_state):
+            st.session_state.page = 0
+
+        prev, perpage, next = itemcnt.columns(3)
+        prev.button("< Prev", on_click=prevpage, disabled=st.session_state.page==0)
+        ipp = perpage.selectbox("Items per page", [10,25,50], label_visibility="collapsed")
+        next.button("Next >", on_click=nextpage, disabled=st.session_state.page*ipp>=items.index.size-1)
+
+        startidx, endidx = st.session_state.page*ipp, min((st.session_state.page+1)*ipp, items.index.size-1)
+
+        selected = items.loc[range(startidx, endidx)]
+
         debugcnt.write(items)
-        debugcnt.write(f"item index: {itemindex}")
+        debugcnt.write(f"page: {st.session_state.page} startidx:{startidx} endidx{endidx}")
         debugcnt.write("selected items")
         debugcnt.write(selected)
 
