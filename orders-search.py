@@ -26,10 +26,6 @@ def get_civic_leagues():
 def get_status_codes():
     return np.load("status_descriptions.npy", allow_pickle=True)
 
-def qp_init(key):
-    if key not in st.session_state and key in st.query_params:
-        st.session_state[key] = st.query_params.get_all(key)
-
 def qp_set_on_search(key):
     if key in st.session_state:
         st.query_params[key] = st.session_state[key]
@@ -38,17 +34,31 @@ def qp_set_on_search(key):
 params = header.expander("Search Parameters")
 searchform = params.form("search")
 
+def multiselect_qp_init(param):
+    key = param.name
+    if key not in st.session_state and key in st.query_params:
+        st.session_state[key] = st.query_params.get_all(key)
+
+def text_qp_init(param):
+    key = param.name
+    if key not in st.session_state and key in st.query_params:
+        st.session_state[key] = ''.join(st.query_params[key])
+
 class SearchParam:
-    def __init__(self, name, widgetcb, querycb):
+    def __init__(self, name, widgetcb, querycb, qpinitcb = multiselect_qp_init):
         self.name = name
         self.widgetcb = widgetcb
         self.querycb = querycb
+        self.qpinitcb = qpinitcb
 
     def widget(self):
         return self.widgetcb(self)
     
     def query(self):
         return self.querycb(self)
+    
+    def qpinit(self):
+        return self.qpinitcb(self)
 
 
 areas = ['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
@@ -83,7 +93,8 @@ civic_league = SearchParam('civic_league',
                            multiselect_query)
 street = SearchParam('street', 
                      lambda _: searchform.text_input("Street", key=_.name),
-                     text_query)
+                     text_query,
+                     text_qp_init)
 
 def date_query(self):
     if self.name in st.session_state:
@@ -113,7 +124,7 @@ param_index = [
 
 
 debugcnt.title("qp init")
-debugcnt.write([qp_init(param.name) for param in param_index])
+debugcnt.write([param.qpinit() for param in param_index])
 
 if("dates" in st.session_state):
     if(type(st.session_state.dates) is str):
