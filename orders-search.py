@@ -179,7 +179,7 @@ try:
 
         prev, perpage, next = itemcnt.columns(3)
         ipp = perpage.selectbox("Items per page", [10,25,50], label_visibility="collapsed")
-        startidx, endidx = st.session_state.page*ipp, min((st.session_state.page+1)*ipp, items.index.size-1)
+        startidx, endidx = st.session_state.page*ipp, min((st.session_state.page+1)*ipp, items.index.size)
         prev.button("< Prev", on_click=prevpage, disabled=st.session_state.page==0)
         next.button("Next >", on_click=nextpage, disabled=endidx>=items.index.size-1)
        
