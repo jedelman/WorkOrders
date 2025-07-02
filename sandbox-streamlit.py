@@ -38,17 +38,75 @@ def qp_set_on_search(key):
         st.query_params[key] = st.session_state[key]
     return st.query_params.get_all(key)
 
+searchform = st.sidebar.form("search")
+
+class SearchParam:
+    def __init__(self, name, widgetcb, querycb):
+        self.name = name
+        self.widgetcb = widgetcb
+        self.querycb = querycb
+
+    def widget(self):
+        return self.widgetcb(self)
+    
+    def query(self):
+        return self.querycb(self)
+
+
 query = []
+areas = ['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
+       'Street Sweeping', 'Bridges', 'Environmental', 'Streets_Bridges',
+       'Wastewater', 'Miscellaneous', 'Water Distribution',
+       'Special Events']
+
+def multiselect_query(param):
+    selections = st.session_state[param.name];
+    if len(selections) == 0:
+        return ''
+    
+    optstr = ', '.join([f"'{x}'" for x in selections])
+    return f"{param.name} in ({optstr})"
+
+area = SearchParam('area', lambda _: searchform.multiselect("Area", key=_.name, options=areas), multiselect_query)
+categories = SearchParam('category_description', 
+                         lambda _: searchform.multiselect("Category", key=_.name, options=get_categories()),
+                         multiselect_query)
+status_codes = SearchParam('status_code', 
+                           lambda _: searchform.multiselect("Status Codes", key=_.name, options=get_status_codes()),
+                           multiselect_query)
+civic_league = SearchParam('civic_league', 
+                           lambda _: searchform.multiselect("Civic League", key=_.name, options = get_civic_leagues()),
+                           multiselect_query)
+
+def date_query(self):
+    if self.name in st.session_state:
+        match st.session_state[self.name]:
+            case startdate, enddate:
+                return f"start_date between '{startdate.isoformat()}' and '{enddate.isoformat()}'"
+            case datetime():
+                date = st.session_state[self.name]
+                return f"start_date = '{date.isoformat()}'"
+def YTD_click():
+        st.session_state["dates"] = [datetime(year = datetime.now().year, month=1, day=1) ,datetime.today()]
+
+def date_widgets(self):
+    searchform.date_input("Date", key=self.name)
+    st.sidebar.button("YTD", on_click=YTD_click)
+
+dates = SearchParam('dates', date_widgets, date_query)
 
 param_index = [
-    'area', 
-    'category_description',  
-    'status_codes', 
-    'civic_league', 
-    'dates' ]
+    area, 
+    categories,  
+    status_codes, 
+    civic_league, 
+    dates
+    ]
+
 
 debugcnt.title("qp init")
-debugcnt.write([qp_init(key) for key in param_index])
+debugcnt.write([qp_init(param.name) for param in param_index])
+
 if("dates" in st.session_state):
     if(type(st.session_state.dates) is str):
         st.session_state.dates = datetime(st.session_state.dates)
@@ -56,43 +114,17 @@ if("dates" in st.session_state):
         if(type(st.session_state.dates[0]) is str):
             st.session_state.dates = [datetime.strptime(date, "%Y-%m-%d") for date in list(st.session_state.dates)]
 
-debugcnt.write([st.session_state[key] for key in param_index if key in st.session_state])
+for param in param_index:
+    param.widget()
 
-st.sidebar.multiselect("Area", key="area", options=['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
-       'Street Sweeping', 'Bridges', 'Environmental', 'Streets_Bridges',
-       'Wastewater', 'Miscellaneous', 'Water Distribution',
-       'Special Events'])
-st.sidebar.multiselect("Category", key="category_description", options=get_categories())
-st.sidebar.multiselect("Status Codes", key="status_code", options=get_status_codes())
+searchform.form_submit_button("Search")
 
-            
+debugcnt.write([st.session_state[param.name] for param in param_index if param.name in st.session_state])
 
-st.sidebar.date_input("Date", key="dates")
+query = [q for q in [param.query() for param in param_index] if not q is '' and not q is None]
 
-def YTD_click():
-    st.session_state["dates"] = [datetime(year = datetime.now().year, month=1, day=1) ,datetime.today()]
-
-st.sidebar.button("YTD", on_click=YTD_click)
-
-if "dates" in st.session_state:
-    match st.session_state["dates"]:
-        case startdate, enddate:
-            query.append(f"start_date between '{startdate.isoformat()}' and '{enddate.isoformat()}'")
-        case datetime():
-            date = st.session_state["dates"]
-            query.append(f"start_date = '{date.isoformat()}'")
-
-st.sidebar.multiselect("Civic League", key="civic_league", options = get_civic_leagues())
-
-for column in [
-    "civic_league",
-    "area",
-    "status_description", 
-    "category_description",]:
-    if column in st.session_state and len(st.session_state[column]) > 0:
-        optstr = ', '.join([f"'{x}'" for x in st.session_state[column]])
-        query.append(f" and {column} in ({optstr})")
-
+debugcnt.title("query info")
+debugcnt.write([qp_set_on_search(param.name) for param in param_index])
 debugcnt.write(query)
 
 client = get_client()
@@ -161,13 +193,11 @@ def renderitem(row):
 
 @st.cache_data
 def get_items(query):
-    work_orders = "qzfe-wj25"        
+    work_orders = "qzfe-wj25"
     return client.get(work_orders, where=' and '.join(query))
 
 try:
     items = None
-    debugcnt.title("query info")
-    debugcnt.write([qp_set_on_search(key) for key in param_index])
 
 
     items = pd.DataFrame(get_items(query))
