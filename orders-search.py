@@ -1,10 +1,10 @@
 import streamlit as st
-from sodapy import Socrata
 import pandas as pd
 import numpy as np
+from db import get_client, get_work_orders
 from datetime import datetime, timedelta
 
-app_token =  st.secrets["app_token"]
+st.set_page_config(page_title="Norfolk Work Orders Search", page_icon=":city_sunrise:", layout="wide")
 
 header = st.container()
 
@@ -12,10 +12,6 @@ itemcnt, debugcnt = st.tabs(["items", "debug"])
 
 debugcnt.title("session state")
 debugcnt.write(st.session_state)
-
-@st.cache_resource
-def get_client():
-    return Socrata("data.norfolk.gov", app_token)
 
 @st.cache_data
 def get_categories():
@@ -38,7 +34,8 @@ def qp_set_on_search(key):
         st.query_params[key] = st.session_state[key]
     return st.query_params.get_all(key)
 
-searchform = st.sidebar.form("search")
+params = header.expander("Search Parameters")
+searchform = params.form("search")
 
 class SearchParam:
     def __init__(self, name, widgetcb, querycb):
@@ -53,7 +50,6 @@ class SearchParam:
         return self.querycb(self)
 
 
-query = []
 areas = ['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
        'Street Sweeping', 'Bridges', 'Environmental', 'Streets_Bridges',
        'Wastewater', 'Miscellaneous', 'Water Distribution',
@@ -101,7 +97,7 @@ def YTD_click():
 
 def date_widgets(self):
     searchform.date_input("Date", key=self.name)
-    st.sidebar.button("YTD", on_click=YTD_click)
+    header.button("YTD", on_click=YTD_click)
 
 dates = SearchParam('dates', date_widgets, date_query)
 
@@ -203,11 +199,6 @@ def renderitem(row):
     cols[1].caption("Street")
         
 
-@st.cache_data
-def get_items(query):
-    work_orders = "qzfe-wj25"
-    return pd.DataFrame(client.get(work_orders, where=' and '.join(query)))
-
 def nextpage():
     if("page" in st.session_state):
         st.session_state.page+=1
@@ -221,9 +212,7 @@ def prevpage():
         st.session_state.page = 0
 
 try:
-    items = None
-
-    items = get_items(query)
+    items = get_work_orders(get_client(), query)
 
     wocnt, cost = header.columns(2)
     wocnt.metric("Work orders", value=items.index.size)
