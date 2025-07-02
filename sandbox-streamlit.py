@@ -3,7 +3,6 @@ from sodapy import Socrata
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from string import Template
 
 app_token =  st.secrets["app_token"]
 
@@ -11,9 +10,8 @@ header = st.container()
 
 itemcnt, debugcnt = st.tabs(["items", "debug"])
 
-with debugcnt:
-    debugcnt.title("session state")
-    debugcnt.write(st.session_state)
+debugcnt.title("session state")
+debugcnt.write(st.session_state)
 
 @st.cache_resource
 def get_client():
@@ -40,7 +38,7 @@ def qp_set_on_search(key):
         st.query_params[key] = st.session_state[key]
     return st.query_params.get_all(key)
 
-query = ""
+query = []
 
 param_index = [
     'area', 
@@ -79,10 +77,10 @@ st.sidebar.button("YTD", on_click=YTD_click)
 if "dates" in st.session_state:
     match st.session_state["dates"]:
         case startdate, enddate:
-            query += f"start_date between '{startdate.isoformat()}' and '{enddate.isoformat()}'"
+            query.append(f"start_date between '{startdate.isoformat()}' and '{enddate.isoformat()}'")
         case datetime():
             date = st.session_state["dates"]
-            query += f"start_date = '{date.isoformat()}'"
+            query.append(f"start_date = '{date.isoformat()}'")
 
 st.sidebar.multiselect("Civic League", key="civic_league", options = get_civic_leagues())
 
@@ -93,7 +91,7 @@ for column in [
     "category_description",]:
     if column in st.session_state and len(st.session_state[column]) > 0:
         optstr = ', '.join([f"'{x}'" for x in st.session_state[column]])
-        query += f" and {column} in ({optstr})"
+        query.append(f" and {column} in ({optstr})")
 
 debugcnt.write(query)
 
@@ -164,7 +162,7 @@ def renderitem(row):
 @st.cache_data
 def get_items(query):
     work_orders = "qzfe-wj25"        
-    return client.get(work_orders, where=query)
+    return client.get(work_orders, where=' and '.join(query))
 
 try:
     items = None
