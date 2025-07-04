@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from db import get_client, get_work_orders
+from db import get_client, get_work_orders_from_local_db
 from datetime import datetime, timedelta
 from render_work_order import render_work_order
 
@@ -9,7 +9,7 @@ st.set_page_config(page_title="Norfolk Work Orders Search", page_icon=":city_sun
 
 header = st.container()
 
-itemcnt, debugcnt = st.tabs(["items", "debug"])
+itemcnt, statscnt, debugcnt = st.tabs(["items", "stats", "debug"])
 
 debugcnt.title("session state")
 debugcnt.write(st.session_state)
@@ -31,8 +31,7 @@ def qp_set_on_search(key):
         st.query_params[key] = st.session_state[key]
     return st.query_params.get_all(key)
 
-params = header.expander("Search Parameters")
-searchform = params.form("search")
+searchform = st.sidebar.form("search")
 
 def multiselect_qp_init(param):
     key = param.name
@@ -100,7 +99,7 @@ def date_query(self):
     if self.name in st.session_state:
         match st.session_state[self.name]:
             case startdate, enddate:
-                return f"start_date between '{startdate.isoformat()}' and '{enddate.isoformat()}'"
+                return f"start_date >= '{startdate.isoformat()}' and start_date <= '{enddate.isoformat()}'"
             case datetime():
                 date = st.session_state[self.name]
                 return f"start_date = '{date.isoformat()}'"
@@ -164,7 +163,23 @@ def display_items(items):
         except Exception as Ex:
             itemcnt.write(Ex)
         
-       
+def display_stats(items):
+    if items is None or len(items) == 0:
+        return "nothing to show"
+
+    with statscnt:
+
+        statscnt.title("Stats")
+
+        st.write(items)
+
+        groupby = st.selectbox("group by", ["area", "civic_league", "problem_description", "category_description"])
+
+        #breakdown by area
+        items["total_cost"] = pd.to_numeric(items["total_cost"])
+
+        st.bar_chart(items.groupby(groupby).sum()["total_cost"])
+
 
 def nextpage():
     if("page" in st.session_state):
@@ -179,8 +194,10 @@ def prevpage():
         st.session_state.page = 0
 
 try:
-    items = get_work_orders(get_client(), query)
-
+    debugcnt.write("query=")
+    debugcnt.write(' and '.join(query))
+    items = get_work_orders_from_local_db(' and '.join(query))
+    debugcnt.write(items)
     wocnt, cost = header.columns(2)
     wocnt.metric("Work orders", value=items.index.size)
     
@@ -194,7 +211,9 @@ try:
         prev.button("< Prev", on_click=prevpage, disabled=st.session_state.page==0)
         next.button("Next >", on_click=nextpage, disabled=endidx>=items.index.size-1)
        
-        selected = items.loc[range(startidx, endidx)]
+        debugcnt.write([startidx, ipp, endidx])
+
+        selected = items.iloc[range(startidx, endidx)]
 
         debugcnt.write(items)
         debugcnt.write(f"page: {st.session_state.page} startidx:{startidx} endidx{endidx}")
@@ -202,6 +221,7 @@ try:
         debugcnt.write(selected)
 
         display_items(selected)
+        display_stats(items)
 
 except Exception as ex:
     itemcnt.error("Error encountered!")
