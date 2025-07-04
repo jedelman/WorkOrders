@@ -172,12 +172,15 @@ def display_stats(items):
 
         st.write(items)
 
-        groupby = st.selectbox("group by", ["area", "civic_league", "problem_description", "category_description"])
+        groupby = st.selectbox("group by", ["area", "civic_league", "problem_description", "category_description", "primary_task_description", "status_description"], accept_new_options=True)
 
-        #breakdown by area
         items["total_cost"] = pd.to_numeric(items["total_cost"])
 
         st.bar_chart(items.groupby(groupby).sum()["total_cost"])
+
+        st.bar_chart(items.groupby(groupby)["total_cost"].mean())
+        
+        st.bar_chart(items.groupby(groupby).count()["total_cost"])
 
 
 def nextpage():
