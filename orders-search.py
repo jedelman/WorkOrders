@@ -168,8 +168,7 @@ def display_stats(items):
         return "nothing to show"
 
     with statscnt:
-
-        statscnt.title("Stats")
+        st.title("Stats")
 
         st.write(items)
 

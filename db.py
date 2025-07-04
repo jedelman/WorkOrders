@@ -15,4 +15,7 @@ def get_work_order_db():
 @st.cache_data
 def get_work_orders_from_local_db(query):
     alldata = get_work_order_db()
+    if(query == ''):
+        return alldata
+    
     return alldata.query(query)
