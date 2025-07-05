@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import altair as alt
 from db import get_client, get_work_orders_from_local_db
 from datetime import datetime, timedelta
 from render_work_order import render_work_order
@@ -139,7 +140,7 @@ searchform.form_submit_button("Search")
 
 debugcnt.write([st.session_state[param.name] for param in param_index if param.name in st.session_state])
 
-query = [q for q in [param.query() for param in param_index] if not q is '' and not q is None]
+query = [q for q in [param.query() for param in param_index] if not q == '' and not q is None]
 
 debugcnt.title("query info")
 debugcnt.write([qp_set_on_search(param.name) for param in param_index])
@@ -168,20 +169,73 @@ def display_stats(items):
         return "nothing to show"
 
     with statscnt:
-        st.title("Stats")
+        "Stats"
 
-        st.write(items)
+        with st.expander("View Data"):
+            items
 
-        groupby = st.selectbox("group by", ["area", "civic_league", "problem_description", "category_description", "primary_task_description", "status_description"], accept_new_options=True)
+        cols = st.columns(3)
 
-        items["total_cost"] = pd.to_numeric(items["total_cost"])
+        groupby = cols[0].selectbox("group by", items.columns)
+        subdivide = cols[1].selectbox("subdivide", items.columns)
+        measure = cols[2].selectbox("measure", items.columns)
 
-        st.bar_chart(items.groupby(groupby).sum()["total_cost"])
+        chart = alt.Chart(data=items).mark_bar().encode(
+            color=f"{subdivide}:N",
+            y=f"{groupby}:N",
+            x=f"sum({measure}):Q",
+            text=f"sum({measure})",
+            tooltip=[
+                "area", 
+                "category_description", 
+                groupby,
+                subdivide,
+                "min(start_date):T",
+                "max(start_date):T",
+                f"sum({measure})", 
+                f"mean({measure})", 
+                "count()"]).transform_filter(alt.datum[groupby] != None)
 
-        st.bar_chart(items.groupby(groupby)["total_cost"].mean())
+        st.altair_chart(chart)
         
-        st.bar_chart(items.groupby(groupby).count()["total_cost"])
 
+        vega_spec = {
+            "data":items,
+            "hconcat":[
+                {
+                "title":"Total Cost",
+                "layer":[
+                    {
+                        "mark":{"type":"bar","tooltip":True},
+                        "encoding":{
+                            "y":{"field":groupby, "title":groupby},
+                            "x":{"field":"total_cost", "aggregate":"sum", "title":"total cost"}
+                        }
+                    },
+                    {
+                        "mark":{"type":"text","align":"left","xOffset":10},
+                        "encoding":{
+                            "y":{"field":groupby},
+                            "x":{"field":"total_cost","aggregate":"sum"},
+                            "text":{"field":"total_cost","aggregate":"sum"},
+                            "color":"black"
+                        }
+                    }
+                    ],
+            },
+            {
+                "title":"average cost",
+                "mark":"bar",
+                "encoding":{
+                    "y":{"field":groupby, "title":groupby},
+                    "x":{"field":"total_cost", "aggregate":"mean", "title":"average cost"}
+                },
+            }
+            ],
+            "autosize":"fit"
+        }
+
+        # st.vega_lite_chart(spec=vega_spec)
 
 def nextpage():
     if("page" in st.session_state):
