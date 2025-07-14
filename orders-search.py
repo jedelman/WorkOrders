@@ -1,16 +1,23 @@
 import streamlit as st
 import pandas as pd
+import geopandas as gpd
 import numpy as np
 import altair as alt
+import pyogrio
 from db import get_client, get_work_orders_from_local_db
-from datetime import datetime, timedelta
+from datetime import datetime
 from render_work_order import render_work_order
 
-st.set_page_config(page_title="Norfolk Work Orders Search", page_icon=":city_sunrise:", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Norfolk Work Orders Search", 
+    page_icon=":city_sunrise:", 
+    layout="wide", 
+    menu_items={"Report a Bug":"https://github.com/jedelman/WorkOrders/issues/new/choose"},
+    initial_sidebar_state="collapsed")
 
 header = st.container()
 
-itemcnt, statscnt, debugcnt = st.tabs(["items", "stats", "debug"])
+itemcnt, statscnt, debugcnt = st.columns(3)
 
 debugcnt.title("session state")
 debugcnt.write(st.session_state)
@@ -163,7 +170,9 @@ def display_items(items):
             render_work_order(itemcnt, row)
         except Exception as Ex:
             itemcnt.write(Ex)
-        
+
+civic_league_geo = gpd.read_file("Civic_Leagues.geojson", engine="pyogrio")
+
 def display_stats(items):
     if items is None or len(items) == 0:
         return "nothing to show"
@@ -176,15 +185,39 @@ def display_stats(items):
 
         cols = st.columns(3)
 
-        groupby = cols[0].selectbox("group by", items.columns)
-        subdivide = cols[1].selectbox("subdivide", items.columns)
-        measure = cols[2].selectbox("measure", items.columns)
+        groupby = cols[0].selectbox("group by", items.columns, 5)
+        subdivide = cols[1].selectbox("subdivide", items.columns, 7)
+        #civic_league_geo['geometry'] = civic_league_geo['geometry'].astype('object')
+        geodata = gpd.read_file("Civic_Leagues.geojson",
+                                 engine="pyogrio", 
+#                                 preserve_index=False, 
+#                                 schema=schema
+                                 )
+        
+        geodata = geodata [["LEAGUE", "geometry"]]
+ 
+        geochart = alt.Chart(geodata).mark_geoshape()
 
-        chart = alt.Chart(data=items).mark_bar().encode(
-            color=f"{subdivide}:N",
+        #geochart = geochart.encode(color='LEAGUE:N', tooltip='LEAGUE')
+        
+        #geochart = geochart.properties(height=500,width=800)
+
+        #nfkvalatlon = [36.8508, 76.2859]
+
+        #geochart = geochart.project("conicEqualArea", scale=100, translate=nfkvalatlon)
+        #geochart = geochart.project('identity', reflectY=True)                                       
+
+        with st.container(border=True):
+            
+            st.altair_chart(geochart)
+
+            st.write(geodata)
+
+        return
+    
+        chart = alt.Chart(data=items, width="container").encode(
             y=f"{groupby}:N",
             x=f"sum({measure}):Q",
-            text=f"sum({measure})",
             tooltip=[
                 "area", 
                 "category_description", 
@@ -194,48 +227,32 @@ def display_stats(items):
                 "max(start_date):T",
                 f"sum({measure})", 
                 f"mean({measure})", 
-                "count()"]).transform_filter(alt.datum[groupby] != None)
+                "count()"])
 
-        st.altair_chart(chart)
+        fullchart = chart.mark_text(align="left").encode(text=f"sum({measure}):Q") + chart.mark_bar().encode(color=alt.Color(f"{subdivide}:N").
+                                    legend(orient="bottom")) 
         
+        fullchart = fullchart.transform_filter(alt.datum[groupby] != None)
+        
+        cl_opts = items["civic_league"][items["civic_league"].notna()].unique()
 
-        vega_spec = {
-            "data":items,
-            "hconcat":[
-                {
-                "title":"Total Cost",
-                "layer":[
-                    {
-                        "mark":{"type":"bar","tooltip":True},
-                        "encoding":{
-                            "y":{"field":groupby, "title":groupby},
-                            "x":{"field":"total_cost", "aggregate":"sum", "title":"total cost"}
-                        }
-                    },
-                    {
-                        "mark":{"type":"text","align":"left","xOffset":10},
-                        "encoding":{
-                            "y":{"field":groupby},
-                            "x":{"field":"total_cost","aggregate":"sum"},
-                            "text":{"field":"total_cost","aggregate":"sum"},
-                            "color":"black"
-                        }
-                    }
-                    ],
-            },
-            {
-                "title":"average cost",
-                "mark":"bar",
-                "encoding":{
-                    "y":{"field":groupby, "title":groupby},
-                    "x":{"field":"total_cost", "aggregate":"mean", "title":"average cost"}
-                },
-            }
-            ],
-            "autosize":"fit"
-        }
+        cl_dd = alt.selection_point(fields=["civic_league"], 
+                                     bind=alt.binding_select(options=cl_opts, name="Civic_League"))
+        
+        def field_opt(chart, name, title):
+            opts = [''] + items[name][items[name].notna()].unique()
+            dd = alt.selection_point(fields=[name], 
+                                     bind=alt.binding_select(options=opts, name=title))
+            return chart.add_params(dd).transform_filter(dd)
+        
+        fullchart = field_opt(fullchart, "civic_league", "Civic League")
+        fullchart = field_opt(fullchart, "area", "Area")
+        fullchart = field_opt(fullchart, "category_description", "Category")
+        fullchart = field_opt(fullchart, "status_description", "Status")
 
-        # st.vega_lite_chart(spec=vega_spec)
+        with st.container(border=True):
+            st.altair_chart(fullchart)
+        
 
 def nextpage():
     if("page" in st.session_state):

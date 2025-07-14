@@ -4,3 +4,7 @@ sodapy
 pandas
 geopandas
 altair
+pyarrow
+pyogrio
+shapely
+geoarrow-pyarrow
