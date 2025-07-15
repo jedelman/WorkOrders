@@ -7,6 +7,9 @@ page = st.navigation(position="top", pages={
     ],
     "Complaints":[
         st.Page("complaints.py", title="Complaints"),
+    ],
+    "Expenditures":[
+        st.Page("expenditures.py", title="Expenditures")
     ]
 })
 

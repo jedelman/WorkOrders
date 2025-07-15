@@ -4,11 +4,14 @@ from sodapy import Socrata
 
 WORK_ORDERS = "qzfe-wj25"
 COMPLAINTS = "m9m3-wk2s"
+EXPENDITURES = "mdwe-dquf"
+REVENUES = "id3i-2az4"
 
 @st.cache_resource
 def get_client():
     return Socrata("data.norfolk.gov", st.secrets["app_token"])
 
+@st.cache_data
 def get_db(db_code):
     localfile = f"data/{db_code}.csv"
     try:
@@ -28,7 +31,11 @@ def get_complaint_db():
     return get_db(COMPLAINTS)
 
 @st.cache_data
-def get_work_orders_from_local_db(query):
+def get_expenditure_db():
+    return get_db(EXPENDITURES)
+
+@st.cache_data
+def get_work_orders_from_local_db(query=''):
     alldata = get_work_order_db()
     if(query == ''):
         return alldata
@@ -36,8 +43,16 @@ def get_work_orders_from_local_db(query):
     return alldata.query(query)
 
 @st.cache_data
-def get_complaints_from_local_db(query):
+def get_complaints_from_local_db(query=''):
     alldata = get_complaint_db()
+    if(query == ''):
+        return alldata
+    
+    return alldata.query(query)
+
+@st.cache_data
+def get_expenditures_from_local_db(query=''):
+    alldata = get_expenditure_db()
     if(query == ''):
         return alldata
     
