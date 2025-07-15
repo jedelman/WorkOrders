@@ -17,18 +17,36 @@ columns = [
 
 chart = alt.Chart(items)
 
-deptselect = alt.selection_point(fields=['department_name'])
+deptclick = alt.selection_point(fields=['department_name'])
+piechart = chart.mark_bar(
+).encode(
+    alt.Y("sum(actual_expenses):Q").scale(type="sqrt"),
+    alt.X("department_name").sort("-y"),
+    alt.Color("department_name:N").legend(None),
+    opacity=alt.when(deptclick).then(alt.value(0.9)).otherwise(alt.value(0.2))
+).add_params(deptclick)
 
-piechart = chart.mark_arc().encode(
-    alt.Theta("sum(actual_expenses):Q").sort("size"),
-    alt.Color("department_name").legend(direction="horizontal", columns=2, orient="top")
-).add_params(deptselect)
 
-
-gridchart = chart.mark_rect().encode(
-    alt.Color("sum(actual_expenses):Q"),
+gridchart = chart.mark_circle().encode(
+    alt.Color("department_name"),
+    alt.Size('sum(actual_expenses):Q'),
     alt.X("unit_name"),
-    alt.Y("expenditure_category")
-).transform_filter(deptselect)
+    alt.Y("expenditure_category"),
+    alt.Tooltip(['sum(actual_expenses):Q',
+                 'unit_name', 
+                 'expenditure_category', 
+                 'count()'])
+).transform_filter(deptclick)
 
-piechart & gridchart
+deets = chart.mark_bar(stroke="white").encode(
+    alt.X("sum(actual_expenses):Q").stack(True).scale(type="sqrt"),
+    alt.Y("unit_name:N").sort("-x"),
+    alt.Color("object_name:N").scale(scheme="turbo"),
+    alt.Tooltip(['object_name', 
+                 'expenditure_category', 
+                 'actual_expenses', 
+                 'current_expense_budget'])
+).transform_filter(deptclick)
+
+
+piechart & gridchart & deets
