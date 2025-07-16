@@ -6,6 +6,7 @@ WORK_ORDERS = "qzfe-wj25"
 COMPLAINTS = "m9m3-wk2s"
 EXPENDITURES = "mdwe-dquf"
 REVENUES = "id3i-2az4"
+MYNORFOLK = "nbyu-xjez"
 
 @st.cache_resource
 def get_client():
@@ -53,6 +54,19 @@ def get_complaints_from_local_db(query=''):
 @st.cache_data
 def get_expenditures_from_local_db(query=''):
     alldata = get_expenditure_db()
+    if(query == ''):
+        return alldata
+    
+    return alldata.query(query)
+
+@st.cache_data
+def get_mnf_from_local_db(query=''):
+    
+    @st.cache_data
+    def get_mnf_db():
+        return get_db(MYNORFOLK)
+    
+    alldata = get_mnf_db()
     if(query == ''):
         return alldata
     
