@@ -2,11 +2,13 @@ import streamlit as st
 import pandas as pd
 from sodapy import Socrata
 
-WORK_ORDERS = "qzfe-wj25"
-COMPLAINTS = "m9m3-wk2s"
-EXPENDITURES = "mdwe-dquf"
-REVENUES = "id3i-2az4"
-MYNORFOLK = "nbyu-xjez"
+class db_codes:
+    WORK_ORDERS = "qzfe-wj25"
+    COMPLAINTS = "m9m3-wk2s"
+    EXPENDITURES = "mdwe-dquf"
+    REVENUES = "id3i-2az4"
+    MYNORFOLK = "nbyu-xjez"
+    ADDRESSES = "jagz-9a37"
 
 @st.cache_resource
 def get_client():
@@ -27,7 +29,7 @@ def get_db(db_code):
 def get_work_orders_from_local_db(query=''):
     @st.cache_data
     def get_work_order_db():
-        return get_db(WORK_ORDERS)
+        return get_db(db_codes.WORK_ORDERS)
 
 
     alldata = get_work_order_db()
@@ -40,7 +42,7 @@ def get_work_orders_from_local_db(query=''):
 def get_complaints_from_local_db(query=''):
     @st.cache_data
     def get_complaint_db():
-        return get_db(COMPLAINTS)
+        return get_db(db_codes.COMPLAINTS)
 
 
     alldata = get_complaint_db()
@@ -51,9 +53,10 @@ def get_complaints_from_local_db(query=''):
 
 @st.cache_data
 def get_expenditures_from_local_db(query=''):
+
     @st.cache_data
     def get_expenditure_db():
-        return get_db(EXPENDITURES)
+        return get_db(db_codes.EXPENDITURES)
 
     alldata = get_expenditure_db()
     if(query == ''):
@@ -66,7 +69,20 @@ def get_mnf_from_local_db(query=''):
     
     @st.cache_data
     def get_mnf_db():
-        return get_db(MYNORFOLK)
+        return get_db(db_codes.MYNORFOLK)
+    
+    alldata = get_mnf_db()
+    if(query == ''):
+        return alldata
+    
+    return alldata.query(query)
+
+@st.cache_data
+def get_addresses_from_local_db(query=''):
+    
+    @st.cache_data
+    def get_mnf_db():
+        return get_db(db_codes.ADDRESSES)
     
     alldata = get_mnf_db()
     if(query == ''):
