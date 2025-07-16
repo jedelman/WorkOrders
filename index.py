@@ -10,7 +10,8 @@ page = st.navigation(position="top", pages={
     ],
     "Expenditures":[
         st.Page("expenditures.py", title="Expenditures")
-    ]
+    ],
+    "MyNorfolk":[st.Page("mynfk.py", title="MyNorfolk")]
 })
 
 page.run()
