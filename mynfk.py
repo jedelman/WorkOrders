@@ -6,7 +6,7 @@ st.set_page_config(page_title="MyNorfolk request analysis", layout="wide")
 
 locfilter = st.text_input("Location filter")
 
-items = get_mnf_from_local_db(f"service_request_category == 'Parks & Urban Forestry' and location.str.contains('{locfilter}')")
+items = get_mnf_from_local_db(f"service_request_category == 'Parks & Urban Forestry' and location.str.contains('{locfilter}', case=False)")
 addresses = get_addresses_from_local_db()
 
 service_request_number = "service_request_number"
