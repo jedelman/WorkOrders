@@ -16,5 +16,5 @@ wo_id = st.text_input("Enter a Work Order ID", key=WORK_ORDER_ID)
 if wo_id == '' or wo_id is None:
     None
 else:
-    items = get_work_orders_from_local_db([f"{WORK_ORDER_ID} = '{wo_id}'"])
+    items = get_work_orders_from_local_db(f"{WORK_ORDER_ID} == '{wo_id}'")
     render_work_order(st.container(), items.to_dict("records")[0])
