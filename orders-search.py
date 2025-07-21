@@ -148,13 +148,15 @@ def buildQuery():
     return ' and '.join(q)   
 
 try:
+    header.write("current search filters. click to remove.")
+
     showQuery(header)
 
     items = get_work_orders_from_local_db(buildQuery())
     
     header.metric("Work orders", value=items.index.size)
     
-    charts(items, header)
+    charts(items, header.expander('charts'))
     
     if(items.index.size > 0):
         if("page" not in st.session_state):
