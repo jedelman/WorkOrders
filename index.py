@@ -4,14 +4,14 @@ page = st.navigation(position="top", pages={
     "Work Orders":[
         st.Page("statsonly.py", title="Work Orders Stats"),
         st.Page("orders-search.py", title="Work Orders Search"),
+        st.Page("order-detail.py", title="Work Order Detail")
     ],
-    "Complaints":[
-        st.Page("complaints.py", title="Complaints"),
+    "Combined Charts":[
+        st.Page("combined.py", default=True, title="Combined Charts"),
     ],
     "Expenditures":[
         st.Page("expenditures.py", title="Expenditures")
-    ],
-    "MyNorfolk":[st.Page("mynfk.py", title="MyNorfolk")]
+    ]
 })
 
 page.run()

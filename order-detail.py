@@ -6,9 +6,6 @@ st.set_page_config(page_title="Norfolk Work Orders Detail", page_icon=":city_sun
 
 WORK_ORDER_ID = "work_order_number"
 
-if(WORK_ORDER_ID in st.query_params):
-    st.session_state[WORK_ORDER_ID] = st.query_params[WORK_ORDER_ID]
-
 st.page_link("orders-search.py", label="<<< Back to Search")
 
 wo_id = st.text_input("Enter a Work Order ID", key=WORK_ORDER_ID)

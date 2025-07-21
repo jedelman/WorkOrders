@@ -1,10 +1,14 @@
 import streamlit as st
 
 def render_work_order(container, row):
+    WORK_ORDER_ID = "work_order_number"
     rowcnt, debugrowcnt = container.tabs(["work order", "raw data"])
-    rowid = row["work_order_number"]
+    rowid = row[WORK_ORDER_ID]
     debugrowcnt.write(row)
-    rowcnt.link_button(row.get("work_order_number"), f"/order-detail?work_order_number={rowid}")
+    if(rowcnt.button(rowid)):
+        st.session_state[WORK_ORDER_ID] = rowid
+        st.switch_page("order-detail.py")
+
     rowcnt.caption("work order number")
     cols = rowcnt.columns(3)
     def setstate(key, newstate):

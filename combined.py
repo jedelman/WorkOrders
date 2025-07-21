@@ -3,10 +3,13 @@ import altair as alt
 from datetime import datetime
 from db import get_complaints_from_local_db, get_mnf_from_local_db, get_work_orders_from_local_db
 
-
 st.set_page_config(page_title="City complaint analysis", layout="wide")
 
-addr_filter = st.text_input(label="address filter", value="warren cres")
+addr_filter = st.text_input(label="address filter")
+
+if addr_filter == '':
+    "please enter a filter; otherwise, there are too many data points to show!"
+    st.stop()
 
 count = "count()"
 
@@ -48,7 +51,10 @@ if(addr_filter != ''):
 
 complaints = get_complaints_from_local_db(complaint_query)
 mnf_entries = get_mnf_from_local_db(mnf_query)
+wo_items = get_work_orders_from_local_db(wo_query)
+
 complaints = complaints.rename(columns={'type': complaint_columns.complaint_type})
+
 
 chart = alt.Chart(complaints)
 intervalselect = alt.selection_interval()
@@ -63,8 +69,10 @@ chart = chart.mark_circle().encode(
                  complaint_columns.complaint_type, 
                  complaint_columns.subtype, 
                  complaint_columns.address, 
-                 complaint_columns.origin])
-    ).properties(bounds='flush')
+                 complaint_columns.origin,
+                 complaint_columns.complaint_id
+                 ])
+    ).properties(width=800, bounds='flush')
 
 chart = chart.resolve_scale(y='independent').resolve_axis(y='independent')
 
@@ -84,10 +92,14 @@ mnfchart = mnfchart.mark_circle().encode(
         mnf_columns.location,
 
     ])
-).properties(bounds='flush').resolve_scale(y='independent').resolve_axis(y='independent')
+).properties(width=800, bounds='flush').resolve_scale(y='independent').resolve_axis(y='independent')
 
-wo_items = get_work_orders_from_local_db(wo_query)
-
+class wo_columns:
+    area = "area"
+    problem_description = "problem_description"
+    start_date = "start_date"
+    primary_task_description = "primary_task_description"
+    
 wo_chart = alt.Chart(wo_items).mark_circle().encode(
     alt.Row('area:N'),
     alt.Y('problem_description:N'),
@@ -101,7 +113,7 @@ wo_chart = alt.Chart(wo_items).mark_circle().encode(
         'start_date:T',
         'created_datetime:T'
     ])
-).properties(bounds='flush').resolve_scale(y='independent').resolve_axis(y='independent')
+).properties(width=800, bounds='flush').resolve_scale(y='independent').resolve_axis(y='independent')
 
 "complaints"
 st.altair_chart(chart)
