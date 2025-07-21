@@ -28,22 +28,35 @@ def areaChart(items):
         return alt.Chart(items).mark_rect().encode(
             alt.Color('area').legend(None),
             alt.Tooltip(['area', 'sum(total_cost)']),
-            alt.X('area').stack(True).axis(None),
+            alt.X('area').stack(True).axis(labelAngle=45),
         ).transform_filter(
             datum.area != None
-        ).properties(title="Area", height=100, bounds='flush'
-                     ).add_params(
-                         alt.selection_point(fields=['area']))
+        ).properties(
+            title="Area", height=250
+        ).add_params(
+            alt.selection_point(fields=['area']))
 
 def categoriesChart(items):
     return alt.Chart(items).mark_rect().encode(
         alt.Color('category_description').legend(None),
-        alt.X('category_description').stack(True).axis(None)
+        alt.X('category_description').stack(True).axis(labelAngle=45)
     ).transform_filter(
         datum.category_description != None
-    ).properties(title="Category", height=100
-                 ).add_params(
-                         alt.selection_point(fields=['category_description']))
+    ).properties(
+        title="Category", height=250
+    ).add_params(
+        alt.selection_point(fields=['category_description']))
+
+def clAndStreet(items):
+    return alt.Chart(items).mark_rect().encode(
+        alt.Color('street').legend(None),
+        alt.X('street').axis(labelAngle=45, labelOverlap='parity'),
+        alt.Row('civic_league')
+    ).transform_filter(
+        datum.street != None, datum.civic_league != None
+    ).add_params(
+        alt.selection_point(fields=['street','civic_league'])
+    ).resolve_scale(x='independent')
 
 
 param_charts = {
@@ -51,7 +64,7 @@ param_charts = {
     'category_description': categoriesChart,
     #'status_description' : nochart,
     #'civic_league': nochart,
-    #'street': nochart,
+    'street': clAndStreet,
     #'start_date': nochart
 }
 
@@ -101,10 +114,6 @@ def charts(items, container):
                 st.session_state.dates = dates
                 st.rerun()
 
-            container.write(st.session_state.dates)
-        else:
-            container.write(result)
-
 def showQuery(container):
     if('dates' in st.session_state):
         [start, end] = st.session_state.dates
@@ -127,11 +136,16 @@ def showQuery(container):
         del st.session_state[SEARCH_QUERY][key]
 
 def buildQuery():
-    return ' and '.join([
+    q = [
         f"{key}.str.contains('{value}', case=False, na=False)"
         for key, value in 
-        st.session_state[SEARCH_QUERY].items()])
-        
+        st.session_state[SEARCH_QUERY].items()]
+
+    if 'dates' in st.session_state:
+        start, end = st.session_state.dates
+        q.append(f"start_date >= '{(start)}' and start_date <= '{(end)}'")
+
+    return ' and '.join(q)   
 
 try:
     showQuery(header)
