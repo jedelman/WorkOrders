@@ -11,6 +11,10 @@ page = st.navigation(position="top", pages={
     ],
     "Expenditures":[
         st.Page("expenditures.py", title="Expenditures")
+    ],
+    "Maps":[
+        st.Page("civic_leagues.py", title="Civic Leagues"),
+        st.Page("trees.py", title="Trees")
     ]
 })
 

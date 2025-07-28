@@ -49,14 +49,15 @@ def categoriesChart(items):
 
 def clAndStreet(items):
     return alt.Chart(items).mark_rect().encode(
-        alt.Color('street').legend(None),
-        alt.X('street').axis(labelAngle=45, labelOverlap='parity'),
-        alt.Row('civic_league')
+        alt.X('civic_league').axis(labelAngle=45, labelOverlap='parity'),
+        alt.Color('civic_league')
     ).transform_filter(
-        datum.street != None, datum.civic_league != None
+        datum.civic_league != None
     ).add_params(
-        alt.selection_point(fields=['street','civic_league'])
-    ).resolve_scale(x='independent')
+        alt.selection_point(fields=['civic_league'])
+    ).properties(
+        title="Civic League", height=250
+    ).
 
 
 param_charts = {
@@ -64,7 +65,7 @@ param_charts = {
     'category_description': categoriesChart,
     #'status_description' : nochart,
     #'civic_league': nochart,
-    'street': clAndStreet,
+    'civic_league': clAndStreet,
     #'start_date': nochart
 }
 

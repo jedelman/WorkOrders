@@ -9,6 +9,7 @@ class db_codes:
     REVENUES = "id3i-2az4"
     MYNORFOLK = "nbyu-xjez"
     ADDRESSES = "jagz-9a37"
+    TREES = "cmvv-agyb"
 
 @st.cache_resource
 def get_client():
@@ -85,6 +86,19 @@ def get_addresses_from_local_db(query=''):
         return get_db(db_codes.ADDRESSES)
     
     alldata = get_mnf_db()
+    if(query == ''):
+        return alldata
+    
+    return alldata.query(query)
+
+@st.cache_data
+def get_trees_from_local_db(query=''):
+
+    @st.cache_data
+    def get_tree_db():
+        return get_db(db_codes.TREES)
+    
+    alldata = get_tree_db()
     if(query == ''):
         return alldata
     

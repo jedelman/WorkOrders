@@ -2,7 +2,9 @@ import streamlit as st
 import altair as alt
 from db import get_expenditures_from_local_db
 
-items = get_expenditures_from_local_db("fiscal_year == '2025'")
+st.set_page_config(layout="wide")
+
+items = get_expenditures_from_local_db("fiscal_year == 2025")
 
 columns = [
 "fiscal_year"
@@ -21,16 +23,18 @@ deptclick = alt.selection_point(fields=['department_name'])
 piechart = chart.mark_bar(
 ).encode(
     alt.Y("sum(actual_expenses):Q").scale(type="sqrt"),
-    alt.X("department_name").sort("-y"),
+    alt.X("department_name:N").sort("-y").axis(labelAngle=45),
     alt.Color("department_name:N").legend(None),
     opacity=alt.when(deptclick).then(alt.value(0.9)).otherwise(alt.value(0.2))
-).add_params(deptclick)
+).add_params(deptclick).properties(
+    title="Expenditures"
+)
 
 
 gridchart = chart.mark_circle().encode(
     alt.Color("department_name"),
     alt.Size('sum(actual_expenses):Q'),
-    alt.X("unit_name"),
+    alt.X("unit_name:N"),
     alt.Y("expenditure_category"),
     alt.Tooltip(['sum(actual_expenses):Q',
                  'unit_name', 
@@ -49,4 +53,4 @@ deets = chart.mark_bar(stroke="white").encode(
 ).transform_filter(deptclick)
 
 
-piechart & gridchart & deets
+st.altair_chart(piechart & gridchart & deets, use_container_width=True)
