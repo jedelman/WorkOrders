@@ -15,10 +15,6 @@ treelayer = pdk.Layer(
     trees,
     id='trees',
     get_position=['longitude', 'latitude'],
-    auto_highlight=True,
-    pickable=True,
-    filled=True,
-    wireframe=True,
     get_fill_color='[0, 255, 122]')
 
 treedensitylayer = pdk.Layer(
@@ -36,12 +32,14 @@ treenamelayer = pdk.Layer(
     get_position=['longitude', 'latitude'],
     get_text='common_name',
     get_size='trunk_diameter',
+    pickable=True,
+    auto_highlight=True,
     size_scale=0.5,
     size_units='meters',
     get_color='[0,230,186]'
 )
 
-deck = pdk.Deck(layers=[treenamelayer], initial_view_state=viewstate)
+deck = pdk.Deck(layers=[treenamelayer, treelayer, treedensitylayer], initial_view_state=viewstate)
 
 cols = st.columns(2)
 
@@ -54,5 +52,6 @@ with cols[1]:
         st.write(tree['common_name'])
         st.caption(f"{tree['genus']} {tree['species']}")
         st.metric(label='trunk diameter', value=tree['trunk_diameter'])
+        st.write(selection)
     except Exception as x:
         st.write()
