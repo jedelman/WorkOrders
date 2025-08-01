@@ -1,3 +1,9 @@
+"""
+UNDER CONSTRUCTION: addresses need to be geocoded and filtered to civic league.
+Then we can make nice maps!
+
+"""
+
 import streamlit as st
 import altair as alt
 from datetime import datetime
@@ -5,11 +11,9 @@ from db import get_complaints_from_local_db, get_mnf_from_local_db, get_work_ord
 
 st.set_page_config(page_title="City complaint analysis", layout="wide")
 
-addr_filter = st.text_input(label="address filter")
+cl = st.session_state['selected_civic_league']
 
-if addr_filter == '':
-    "please enter a filter; otherwise, there are too many data points to show!"
-    st.stop()
+addr_filter = st.text_input(label="address filter")
 
 count = "count()"
 
@@ -39,9 +43,10 @@ class mnf_columns:
     modification_date = "modification_date"
 
 
-complaint_query = ''
-mnf_query = ''
-wo_query = ''
+cl_filter = f'civic_league.str.contains("{cl}")'
+complaint_query = []
+mnf_query = [cl_filter]
+wo_query = [cl_filter]
 
 if(addr_filter != ''):
     complaint_query += f'address.str.contains("{addr_filter}", case=False, na=False)'
@@ -49,9 +54,9 @@ if(addr_filter != ''):
     wo_query += f'street.str.contains("{addr_filter}", case=False, na=False) or civic_league.str.contains("{addr_filter}", case=False, na=False)'
 
 
-complaints = get_complaints_from_local_db(complaint_query)
-mnf_entries = get_mnf_from_local_db(mnf_query)
-wo_items = get_work_orders_from_local_db(wo_query)
+complaints = get_complaints_from_local_db(' and '.join(complaint_query))
+mnf_entries = get_mnf_from_local_db(' and '.join(mnf_query))
+wo_items = get_work_orders_from_local_db(' and '.join(wo_query))
 
 complaints = complaints.rename(columns={'type': complaint_columns.complaint_type})
 

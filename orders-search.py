@@ -57,7 +57,7 @@ def clAndStreet(items):
         alt.selection_point(fields=['civic_league'])
     ).properties(
         title="Civic League", height=250
-    ).
+    )
 
 
 param_charts = {
@@ -65,7 +65,6 @@ param_charts = {
     'category_description': categoriesChart,
     #'status_description' : nochart,
     #'civic_league': nochart,
-    'civic_league': clAndStreet,
     #'start_date': nochart
 }
 
@@ -90,7 +89,7 @@ def dateChart(items):
         alt.X('yearmonth(start_date):T').scale(nice='month'),
         alt.Color('count()'),
     ).properties(
-        title='Start Date', height=250
+        title='Start Date (click and drag to select)', height=250
     ).add_params(
         alt.selection_interval())
 
@@ -117,10 +116,15 @@ def charts(items, container):
 
 def showQuery(container):
     if('dates' in st.session_state):
+        container.write("current search filters. click to remove.")
         [start, end] = st.session_state.dates
-        if(container.button(f"{start:%Y-%m-%d} - {end:%Y-%m-%d}")):
+        if(container.button(f"dates: {start:%Y-%m-%d} - {end:%Y-%m-%d}")):
             del st.session_state.dates
             st.rerun()
+    else:
+        container.write('showing all dates.')
+        container.write("current search filters. click to remove.")
+
 
     delkeys = []
     search = st.session_state[SEARCH_QUERY]
@@ -146,18 +150,19 @@ def buildQuery():
         start, end = st.session_state.dates
         q.append(f"start_date >= '{(start)}' and start_date <= '{(end)}'")
 
+    if 'selected_civic_league' in st.session_state:
+        q.append(f"civic_league.str.contains('{st.session_state['selected_civic_league']}', case=False, na=False)")
+
     return ' and '.join(q)   
 
 try:
-    header.write("current search filters. click to remove.")
-
     showQuery(header)
 
     items = get_work_orders_from_local_db(buildQuery())
     
     header.metric("Work orders", value=items.index.size)
     
-    charts(items, header.expander('charts'))
+    charts(items, header.expander('Click to show available search filters'))
     
     if(items.index.size > 0):
         if("page" not in st.session_state):
@@ -189,5 +194,4 @@ try:
         pageview()
 
 except Exception as ex:
-    itemcnt.error("Error encountered!")
-    itemcnt.write(ex)
+    itemcnt.error(ex)
