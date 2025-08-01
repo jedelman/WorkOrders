@@ -1,7 +1,4 @@
 import streamlit as st
-import pandas as pd
-import geopandas as gpd
-import numpy as np
 import altair as alt
 from altair import datum 
 from db import get_work_orders_from_local_db
@@ -12,8 +9,7 @@ st.set_page_config(
     page_title="Norfolk Work Orders Search", 
     page_icon=":city_sunrise:", 
     layout="wide", 
-    menu_items={"Report a Bug":"https://github.com/jedelman/WorkOrders/issues/new/choose"},
-    initial_sidebar_state="collapsed")
+    menu_items={"Report a Bug":"https://github.com/jedelman/WorkOrders/issues/new/choose"},)
 
 SEARCH_QUERY = "search_query"
 
