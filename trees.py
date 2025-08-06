@@ -8,19 +8,12 @@ st.set_page_config(layout='wide')
 
 civic_leagues = re.sub(' and |,', '/ ', st.session_state["selected_civic_league"])
 
-
-# civic_leagues = st.session_state["selected_civic_league"]
-
 civic_leagues = f'civic_league in ["{civic_leagues}"]'
-
 
 trees = db.get_trees_from_local_db(civic_leagues)
 
 viewstate = du.compute_view(trees[["longitude", "latitude"]])
 
-#pdk.ViewState(latitude=36.8508, longitude=-76.2859, zoom=13, pitch=45, bearing=10)
-
-# Define a layer to display on a map
 treelayer = pdk.Layer(
     'ScatterplotLayer',
     trees,
@@ -57,7 +50,16 @@ selection = cols[0].pydeck_chart(deck,
 
 
 with cols[1]:
-    if 'selected_tree' in st.session_state:
+    """
+    # Tree inspector
+
+    pan and zoom the map to examine current city tree inventory.
+
+    click on a tree to view its inventory code and additional stats about it.
+
+    """
+
+    if 'selected_trees' in st.session_state:
         for tree in st.session_state['selected_trees']:
             st.header(tree['tree_id'])
             st.write(tree['common_name'])

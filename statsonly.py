@@ -1,12 +1,12 @@
-from db import get_work_orders_from_local_db
+from db import get_work_orders_from_local_db, buildQuery
+import re
 import streamlit as st
 import altair as alt
 from datetime import datetime
 
 st.set_page_config(layout="wide")
 
-
-items = get_work_orders_from_local_db(f"civic_league in ['{st.session_state['selected_civic_league']}'] and start_date > '2020-01-01'")
+items = get_work_orders_from_local_db(buildQuery())
 
 chart = alt.Chart(items)
 

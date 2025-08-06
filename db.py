@@ -103,3 +103,26 @@ def get_trees_from_local_db(query=''):
         return alldata
     
     return alldata.query(query)
+
+SEARCH_QUERY = "search_query"
+
+def buildQuery(extras = []):
+    import re
+    civic_leagues = re.sub(' and |,', '/ ', st.session_state["selected_civic_league"])
+
+    q = [
+        f"{key}.str.contains('{value}', case=False, na=False)"
+        for key, value in 
+        st.session_state[SEARCH_QUERY].items()]
+
+    if 'dates' in st.session_state:
+        start, end = st.session_state.dates
+        q.append(f"start_date >= '{(start)}' and start_date <= '{(end)}'")
+
+    q.append(f"civic_league in ['{civic_leagues}']")
+    
+    for x in extras:
+        q.append(x)
+
+    query = ' and '.join(q)
+    return query

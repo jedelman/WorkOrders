@@ -3,6 +3,8 @@ import pydeck as pdk
 import pydeck.data_utils as du
 import geopandas as gpd
 
+st.set_page_config(page_title="Civic League selection", layout="wide")
+
 if not 'selected_civic_league' in st.session_state:
     """
     # Welcome!
@@ -12,7 +14,10 @@ if not 'selected_civic_league' in st.session_state:
     """
 else:
     f"""
-    # Selected Civic League : {st.session_state['selected_civic_league']}
+    Selected Civic League : 
+    # {st.session_state['selected_civic_league']}
+
+    
     """
 
 civicleagues = gpd.read_file('Civic_Leagues.geojson')

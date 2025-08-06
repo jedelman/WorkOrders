@@ -2,6 +2,18 @@ import streamlit as st
 import altair as alt
 from db import get_expenditures_from_local_db
 
+"""
+# Budget Browser: Expenditures
+
+the following chart shows current expenditures in the city's budget.
+currently it is limited to the current fiscal year.
+
+click on a category to inspect it, and shift-click to inspect multiple categories.
+
+the chart below presents a more detailed breakdown by category.
+
+"""
+
 st.set_page_config(layout="wide")
 
 items = get_expenditures_from_local_db("fiscal_year == 2025")
@@ -31,17 +43,6 @@ piechart = chart.mark_bar(
 )
 
 
-gridchart = chart.mark_circle().encode(
-    alt.Color("department_name"),
-    alt.Size('sum(actual_expenses):Q'),
-    alt.X("unit_name:N"),
-    alt.Y("expenditure_category"),
-    alt.Tooltip(['sum(actual_expenses):Q',
-                 'unit_name', 
-                 'expenditure_category', 
-                 'count()'])
-).transform_filter(deptclick)
-
 deets = chart.mark_bar(stroke="white").encode(
     alt.X("sum(actual_expenses):Q").stack(True).scale(type="sqrt"),
     alt.Y("unit_name:N").sort("-x"),
@@ -52,5 +53,6 @@ deets = chart.mark_bar(stroke="white").encode(
                  'current_expense_budget'])
 ).transform_filter(deptclick)
 
+fullchart = (piechart & deets)
 
-st.altair_chart(piechart & gridchart & deets, use_container_width=True)
+st.altair_chart(fullchart)

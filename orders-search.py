@@ -1,9 +1,12 @@
 import streamlit as st
 import altair as alt
+import re
 from altair import datum 
-from db import get_work_orders_from_local_db
+from db import get_work_orders_from_local_db, buildQuery
 from datetime import datetime, timedelta
 from render_work_order import render_work_order
+
+civic_leagues = re.sub(' and |,', '/ ', st.session_state["selected_civic_league"])
 
 st.set_page_config(
     page_title="Norfolk Work Orders Search", 
@@ -11,104 +14,129 @@ st.set_page_config(
     layout="wide", 
     menu_items={"Report a Bug":"https://github.com/jedelman/WorkOrders/issues/new/choose"},)
 
+f"""
+# Work Orders Search
+"""
+
+
 SEARCH_QUERY = "search_query"
 
 if SEARCH_QUERY not in st.session_state:
     st.session_state[SEARCH_QUERY] = {} # clauses
 
-header = st.container()
-
-itemcnt = st.container()
-
-def areaChart(items):
-        return alt.Chart(items).mark_rect().encode(
-            alt.Color('area').legend(None),
-            alt.Tooltip(['area', 'sum(total_cost)']),
-            alt.X('area').stack(True).axis(labelAngle=45),
-        ).transform_filter(
-            datum.area != None
-        ).properties(
-            title="Area", height=250
-        ).add_params(
-            alt.selection_point(fields=['area']))
-
-def categoriesChart(items):
-    return alt.Chart(items).mark_rect().encode(
-        alt.Color('category_description').legend(None),
-        alt.X('category_description').stack(True).axis(labelAngle=45)
-    ).transform_filter(
-        datum.category_description != None
-    ).properties(
-        title="Category", height=250
-    ).add_params(
-        alt.selection_point(fields=['category_description']))
-
-def clAndStreet(items):
-    return alt.Chart(items).mark_rect().encode(
-        alt.X('civic_league').axis(labelAngle=45, labelOverlap='parity'),
-        alt.Color('civic_league')
-    ).transform_filter(
-        datum.civic_league != None
-    ).add_params(
-        alt.selection_point(fields=['civic_league'])
-    ).properties(
-        title="Civic League", height=250
-    )
-
-
-param_charts = {
-    'area': areaChart,
-    'category_description': categoriesChart,
-    #'status_description' : nochart,
-    #'civic_league': nochart,
-    #'start_date': nochart
-}
-
 def display_items(items):
-    def datefmt(datestr):
-        return datetime.fromisoformat(datestr).strftime("%m/%d/%Y") if type(datestr) is str else None
-
     if items is None or len(items) == 0:
         return "nothing to show"
 
-    for row in items.to_dict('records'):
-        row["start_date_fmt"] = datefmt(row["start_date"])
-        row["status_datetime_fmt"] = datefmt(row["status_datetime"])
-        row["created_datetime_fmt"] = datefmt(row["created_datetime"])
-        try:
-            render_work_order(itemcnt, row)
-        except Exception as Ex:
-            itemcnt.write(Ex)
+    columns = ["area",
+                "category_description", 
+                'problem_description',
+                "primary_task_description",
+                "total_cost",
+                "priority",
+                "street",
+                "status_description",
+                "status_datetime",
+                "start_date",
+                "created_datetime"]
 
-def dateChart(items):
-    return alt.Chart(items).mark_rect().encode(
-        alt.X('yearmonth(start_date):T').scale(nice='month'),
-        alt.Color('count()'),
-    ).properties(
-        title='Start Date (click and drag to select)', height=250
-    ).add_params(
-        alt.selection_interval())
+    column_config = {
+        "area": st.column_config.TextColumn("Area"),
+        "category_description":st.column_config.TextColumn("Category"), 
+        'problem_description':st.column_config.TextColumn("Problem"),
+        "primary_task_description":st.column_config.TextColumn("Primary Task"),
+        "total_cost":st.column_config.NumberColumn("Total Cost", format="dollar"),
+        "street":st.column_config.TextColumn("Street"),
+        "priority":st.column_config.TextColumn("Priority"),
+        "status_description":st.column_config.TextColumn("Status"),
+        "status_datetime":st.column_config.DatetimeColumn("Status As Of", format="localized"),
+        "start_date":st.column_config.DateColumn("Started On", format="localized"),
+        "created_datetime":st.column_config.DatetimeColumn("Created At", format="localized")
+        }
+    
+    st.dataframe(data=items,
+                 key="items", 
+                 use_container_width=True,
+                 hide_index=True,
+                 column_order=columns,
+                 column_config=column_config,
+                 selection_mode="multi-column",
+                 on_select="rerun"
+    )
 
-def charts(items, container):
-    for (key, chartfunc) in param_charts.items():
-        result = container.altair_chart(chartfunc(items), on_select="rerun", use_container_width=True).selection.param_1
-        if len(result) > 0 and key in result[0]:
-            if key not in st.session_state[SEARCH_QUERY] or st.session_state[SEARCH_QUERY][key] != result[0][key]:
-                st.session_state[SEARCH_QUERY][key] = result[0][key]
-                st.rerun()
+def timeline(items):
+    encodings = [alt.Row('area'), alt.Color('area')]
+    colSelect = []
+    try:
+        colSelect = st.session_state["items"]["selection"]["columns"]
+        match len(colSelect):
+            case 1: 
+                encodings = [alt.Row(f'{colSelect[0]}:N')]
+            case 2:
+                encodings = [
+                    alt.Row(f'{colSelect[0]}:N'),
+                    alt.Y(f'{colSelect[1]}:N')
+                ]
+            case 3:
+                encodings = [
+                    alt.Row(f'{colSelect[0]}:N'),
+                    alt.Y(f'{colSelect[1]}:N'),
+                    alt.YOffset(f'{colSelect[2]}:N')
+                ]
+            case 4:
+                encodings = [
+                    alt.Row(f'{colSelect[0]}:N'),
+                    alt.Y(f'{colSelect[1]}:N'),
+                    alt.YOffset(f'{colSelect[2]}:N'),
+                    alt.Color(f'{colSelect[3]}:N')
+                ]
+            case default:
+                None
+    except KeyError:
+        None
+    except IndexError:
+        None
 
-    #date chart
-    result = container.altair_chart(dateChart(items), on_select='rerun').selection.param_1
-    start_date = "yearmonth_start_date"
-    if start_date in result:
-        if(len(result[start_date]) == 2):
-            start, end = result[start_date]
-            start /= 1000
-            end /= 1000
-            dates = [datetime.fromtimestamp(start), datetime.fromtimestamp(end)]
-            if 'dates' not in st.session_state or st.session_state.dates != dates:
-                st.session_state.dates = dates
-                st.rerun()
+    def dateChart(items):
+        return alt.Chart(items).mark_circle().encode(
+            alt.X('start_date:T'),
+            alt.Size('count()').scale(scheme='turbo'),
+            *encodings
+        ).properties(
+            title='Start Date (click and drag to select)', height=50, bounds="flush"
+        ).resolve_scale(
+            y='independent'
+        ).add_params(
+            alt.selection_interval(encodings=['x'], name='timeframe'), alt.selection_point(name='category'))
+    
+    def timeline_select():
+        start_date = "start_date"
+
+        if 'timeline' in st.session_state:
+            selection = st.session_state['timeline']['selection']
+            
+            if 'timeframe' in selection:
+                timeframe_result = selection['timeframe']
+                        
+                if start_date in timeframe_result:
+                    if(len(timeframe_result[start_date]) == 2):
+                        start, end = timeframe_result[start_date]
+                        start /= 1000
+                        end /= 1000
+                        st.session_state['dates'] = [
+                                datetime.fromtimestamp(start), datetime.fromtimestamp(end)
+                                ]
+                
+
+            if 'category' in selection:
+                st.write(selection)
+                for item in selection['category']:
+                    for idx, key in enumerate(item):
+                        if not start_date == key:
+                            st.session_state[SEARCH_QUERY] |= {key:item[key]}
+
+    st.altair_chart(dateChart(items), key='timeline', on_select=timeline_select)
+    
 
 def showQuery(container):
     if('dates' in st.session_state):
@@ -121,73 +149,52 @@ def showQuery(container):
         container.write('showing all dates.')
         container.write("current search filters. click to remove.")
 
-
-    delkeys = []
     search = st.session_state[SEARCH_QUERY]
     
     if(len(search) < 1): return
 
     cols = container.columns(len(search))
     
-    for idx, key in enumerate(search):
-        if(cols[idx].button(f"{key}:{search[key]}")):
-            delkeys.append(key)
-    
-    for key in delkeys:
+    def delkey(key):
         del st.session_state[SEARCH_QUERY][key]
 
-def buildQuery():
-    q = [
-        f"{key}.str.contains('{value}', case=False, na=False)"
-        for key, value in 
-        st.session_state[SEARCH_QUERY].items()]
+    for idx, key in enumerate(search):
+        with(cols[idx]):
+            st.button(
+                label=f"{key}:{search[key]}", 
+                key=f'delete_{key}_search', 
+                on_click=delkey, 
+                kwargs={"key":key})
+        
 
-    if 'dates' in st.session_state:
-        start, end = st.session_state.dates
-        q.append(f"start_date >= '{(start)}' and start_date <= '{(end)}'")
-
-    if 'selected_civic_league' in st.session_state:
-        q.append(f"civic_league.str.contains('{st.session_state['selected_civic_league']}', case=False, na=False)")
-
-    return ' and '.join(q)   
 
 try:
-    showQuery(header)
-
+    
     items = get_work_orders_from_local_db(buildQuery())
     
-    header.metric("Work orders", value=items.index.size)
+    st.metric("Work orders", value=items.index.size)
     
-    charts(items, header.expander('Click to show available search filters'))
-    
-    if(items.index.size > 0):
-        if("page" not in st.session_state):
-            st.session_state.page = 0
+    """
+    The currently selected items are displayed below. Click on a column to chart it in the timelines. Ctrl-click to chart multiple columns.
+    """
 
-        def pageview():
-            def nextpage():
-                if("page" in st.session_state):
-                    st.session_state.page+=1
-                else:
-                    st.session_state.page = 0
+    display_items(items)
 
-            def prevpage():
-                if("page" in st.session_state):
-                    st.session_state.page-=1
-                else:
-                    st.session_state.page = 0
+    """
+    The selected columns are charted below. Click and drag to select a timeframe. Click on a circle to filter.
+    """
 
-            prev, perpage, next = itemcnt.columns(3)
-            ipp = perpage.selectbox("Items per page", [10,25,50], label_visibility="collapsed")
-            startidx, endidx = st.session_state.page*ipp, min((st.session_state.page+1)*ipp, items.index.size)
-            prev.button("< Prev", on_click=prevpage, disabled=st.session_state.page==0)
-            next.button("Next >", on_click=nextpage, disabled=endidx>=items.index.size-1)
-        
-            selected = items.iloc[range(startidx, endidx)]
+    f"""
+    currently filtered to: **{civic_leagues}**
 
-            display_items(selected)
+    explore using the filters below.
 
-        pageview()
+    """
+
+    showQuery(st)
+
+    timeline(items)
+   
 
 except Exception as ex:
-    itemcnt.error(ex)
+    ex
