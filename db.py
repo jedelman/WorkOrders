@@ -2,28 +2,127 @@ import streamlit as st
 import pandas as pd
 from sodapy import Socrata
 
-WORK_ORDERS = "qzfe-wj25"
+class db_codes:
+    WORK_ORDERS = "qzfe-wj25"
+    COMPLAINTS = "m9m3-wk2s"
+    EXPENDITURES = "mdwe-dquf"
+    REVENUES = "id3i-2az4"
+    MYNORFOLK = "nbyu-xjez"
+    ADDRESSES = "jagz-9a37"
+    TREES = "cmvv-agyb"
 
 @st.cache_resource
 def get_client():
     return Socrata("data.norfolk.gov", st.secrets["app_token"])
 
-LOCAL_WORK_ORDER_FILE = "workorders-df.pydata"
-
 @st.cache_data
-def get_work_order_db():
+def get_db(db_code):
+    localfile = f"data/{db_code}.csv"
     try:
-        allorders = pd.read_csv(LOCAL_WORK_ORDER_FILE)
+        all = pd.read_csv(localfile)
     except OSError:
-        allorders = pd.DataFrame(get_client().get_all(WORK_ORDERS))
-        allorders.to_csv(LOCAL_WORK_ORDER_FILE)
+        all = pd.DataFrame(get_client().get_all(db_code))
+        all.to_csv(localfile)
     
-    return allorders
+    return all
 
 @st.cache_data
-def get_work_orders_from_local_db(query):
+def get_work_orders_from_local_db(query=''):
+    @st.cache_data
+    def get_work_order_db():
+        return get_db(db_codes.WORK_ORDERS)
+
+
     alldata = get_work_order_db()
     if(query == ''):
         return alldata
     
     return alldata.query(query)
+
+@st.cache_data
+def get_complaints_from_local_db(query=''):
+    @st.cache_data
+    def get_complaint_db():
+        return get_db(db_codes.COMPLAINTS)
+
+
+    alldata = get_complaint_db()
+    if(query == ''):
+        return alldata
+    
+    return alldata.query(query)
+
+@st.cache_data
+def get_expenditures_from_local_db(query=''):
+
+    @st.cache_data
+    def get_expenditure_db():
+        return get_db(db_codes.EXPENDITURES)
+
+    alldata = get_expenditure_db()
+    if(query == ''):
+        return alldata
+    
+    return alldata.query(query)
+
+@st.cache_data
+def get_mnf_from_local_db(query=''):
+    
+    @st.cache_data
+    def get_mnf_db():
+        return get_db(db_codes.MYNORFOLK)
+    
+    alldata = get_mnf_db()
+    if(query == ''):
+        return alldata
+    
+    return alldata.query(query)
+
+@st.cache_data
+def get_addresses_from_local_db(query=''):
+    
+    @st.cache_data
+    def get_mnf_db():
+        return get_db(db_codes.ADDRESSES)
+    
+    alldata = get_mnf_db()
+    if(query == ''):
+        return alldata
+    
+    return alldata.query(query)
+
+@st.cache_data
+def get_trees_from_local_db(query=''):
+
+    @st.cache_data
+    def get_tree_db():
+        return get_db(db_codes.TREES)
+    
+    alldata = get_tree_db()
+    if(query == ''):
+        return alldata
+    
+    return alldata.query(query)
+
+SEARCH_QUERY = "search_query"
+
+def buildQuery(extras = []):
+    import re
+    civic_leagues = re.sub(' and |,', '/ ', st.session_state["selected_civic_league"])
+
+    q = [
+        f"{key}.str.contains('{value}', case=False, na=False)"
+        for key, value in 
+        st.session_state[SEARCH_QUERY].items()]
+
+    if 'dates' in st.session_state:
+        start, end = st.session_state.dates
+        q.append(f"start_date >= '{(start)}' and start_date <= '{(end)}'")
+
+    q.append(f"civic_league in ['{civic_leagues}']")
+    
+    for x in extras:
+        q.append(x)
+
+    query = ' and '.join(q)
+    return query

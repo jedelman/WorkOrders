@@ -1,10 +1,38 @@
 import streamlit as st
 
 def render_work_order(container, row):
+    WORK_ORDER_ID = "work_order_number"
+    rowid = row[WORK_ORDER_ID]
+    v = row.get
+
+    with container:
+        if(st.button(rowid, type="primary", use_container_width=True)):
+            st.session_state[WORK_ORDER_ID] = rowid
+            st.switch_page("order-detail.py")
+
+        st.markdown(f"""
+
+        Street: **{v("street")}**
+        
+        |Area|Category|Problem|Primary Task|
+        |----|--------|-------|------------|
+        |{v("area")}|{v("category_description")}|{v('problem_description')}|{v("primary_task_description")}|
+
+        |Total Cost|Priority|Current Status|Started|Created|
+        |----------|--------|--------------|-------|-------|
+        |{v("total_cost")}|{v("priority")}|{v("status_description")} as of {v("status_datetime_fmt")}||{v("start_date_fmt")}|{v("created_datetime_fmt")}|
+
+        """)
+
+def render_work_order_old(container, row):
+    WORK_ORDER_ID = "work_order_number"
     rowcnt, debugrowcnt = container.tabs(["work order", "raw data"])
-    rowid = row["work_order_number"]
+    rowid = row[WORK_ORDER_ID]
     debugrowcnt.write(row)
-    rowcnt.link_button(row.get("work_order_number"), f"/order-detail?work_order_number={rowid}")
+    if(rowcnt.button(rowid)):
+        st.session_state[WORK_ORDER_ID] = rowid
+        st.switch_page("order-detail.py")
+
     rowcnt.caption("work order number")
     cols = rowcnt.columns(3)
     def setstate(key, newstate):

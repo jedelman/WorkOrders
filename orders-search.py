@@ -1,284 +1,200 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 import altair as alt
-from db import get_client, get_work_orders_from_local_db
+import re
+from altair import datum 
+from db import get_work_orders_from_local_db, buildQuery
 from datetime import datetime, timedelta
 from render_work_order import render_work_order
 
-st.set_page_config(page_title="Norfolk Work Orders Search", page_icon=":city_sunrise:", layout="wide", initial_sidebar_state="collapsed")
+civic_leagues = re.sub(' and |,', '/ ', st.session_state["selected_civic_league"])
 
-header = st.container()
+st.set_page_config(
+    page_title="Norfolk Work Orders Search", 
+    page_icon=":city_sunrise:", 
+    layout="wide", 
+    menu_items={"Report a Bug":"https://github.com/jedelman/WorkOrders/issues/new/choose"},)
 
-itemcnt, statscnt, debugcnt = st.tabs(["items", "stats", "debug"])
-
-debugcnt.title("session state")
-debugcnt.write(st.session_state)
-
-@st.cache_data
-def get_categories():
-    return pd.read_csv("categories.csv")["Category Description"]
-
-@st.cache_data
-def get_civic_leagues():
-    return pd.read_csv("civic_leagues.csv")['0']
-
-@st.cache_data
-def get_status_codes():
-    return np.load("status_descriptions.npy", allow_pickle=True)
-
-def qp_set_on_search(key):
-    if key in st.session_state:
-        st.query_params[key] = st.session_state[key]
-    return st.query_params.get_all(key)
-
-searchform = st.sidebar.form("search")
-
-def multiselect_qp_init(param):
-    key = param.name
-    if key not in st.session_state and key in st.query_params:
-        st.session_state[key] = st.query_params.get_all(key)
-
-def text_qp_init(param):
-    key = param.name
-    if key not in st.session_state and key in st.query_params:
-        st.session_state[key] = ''.join(st.query_params[key])
-
-class SearchParam:
-    def __init__(self, name, widgetcb, querycb, qpinitcb = multiselect_qp_init):
-        self.name = name
-        self.widgetcb = widgetcb
-        self.querycb = querycb
-        self.qpinitcb = qpinitcb
-
-    def widget(self):
-        return self.widgetcb(self)
-    
-    def query(self):
-        return self.querycb(self)
-    
-    def qpinit(self):
-        return self.qpinitcb(self)
+f"""
+# Work Orders Search
+"""
 
 
-areas = ['', 'Forestry', 'Landscape', 'Traffic', 'Streets', 'Stormwater',
-       'Street Sweeping', 'Bridges', 'Environmental', 'Streets_Bridges',
-       'Wastewater', 'Miscellaneous', 'Water Distribution',
-       'Special Events']
+SEARCH_QUERY = "search_query"
 
-def multiselect_query(param):
-    selections = st.session_state[param.name];
-    if len(selections) == 0:
-        return ''
-    
-    optstr = ', '.join([f"'{x}'" for x in selections])
-    return f"{param.name} in ({optstr})"
-
-def text_query(param):
-    val = st.session_state[param.name]
-    if(val == '' or val is None):
-        return ''
-    
-    return f"{param.name} like upper('{val}')"
-
-area = SearchParam('area', lambda _: searchform.multiselect("Area", key=_.name, options=areas), multiselect_query)
-categories = SearchParam('category_description', 
-                         lambda _: searchform.multiselect("Category", key=_.name, options=get_categories()),
-                         multiselect_query)
-status_codes = SearchParam('status_code', 
-                           lambda _: searchform.multiselect("Status Codes", key=_.name, options=get_status_codes()),
-                           multiselect_query)
-civic_league = SearchParam('civic_league', 
-                           lambda _: searchform.multiselect("Civic League", key=_.name, options = get_civic_leagues()),
-                           multiselect_query)
-street = SearchParam('street', 
-                     lambda _: searchform.text_input("Street", key=_.name),
-                     text_query,
-                     text_qp_init)
-
-def date_query(self):
-    if self.name in st.session_state:
-        match st.session_state[self.name]:
-            case startdate, enddate:
-                return f"start_date >= '{startdate.isoformat()}' and start_date <= '{enddate.isoformat()}'"
-            case datetime():
-                date = st.session_state[self.name]
-                return f"start_date = '{date.isoformat()}'"
-def YTD_click():
-        st.session_state["dates"] = [datetime(year = datetime.now().year, month=1, day=1) ,datetime.today()]
-
-def date_widgets(self):
-    searchform.date_input("Date", key=self.name)
-    header.button("YTD", on_click=YTD_click)
-
-dates = SearchParam('dates', date_widgets, date_query)
-
-param_index = [
-    area,
-    categories,
-    status_codes, 
-    civic_league, 
-    street,
-    dates
-    ]
-
-
-debugcnt.title("qp init")
-debugcnt.write([param.qpinit() for param in param_index])
-
-if("dates" in st.session_state):
-    if(type(st.session_state.dates) is str):
-        st.session_state.dates = datetime(st.session_state.dates)
-    if(type(st.session_state.dates) is list):
-        if(type(st.session_state.dates[0]) is str):
-            st.session_state.dates = [datetime.strptime(date, "%Y-%m-%d") for date in list(st.session_state.dates)]
-
-for param in param_index:
-    param.widget()
-
-searchform.form_submit_button("Search")
-
-debugcnt.write([st.session_state[param.name] for param in param_index if param.name in st.session_state])
-
-query = [q for q in [param.query() for param in param_index] if not q == '' and not q is None]
-
-debugcnt.title("query info")
-debugcnt.write([qp_set_on_search(param.name) for param in param_index])
-debugcnt.write(query)
-
-client = get_client()
-
-def datefmt(datestr):
-    return datetime.fromisoformat(datestr).strftime("%m/%d/%Y") if type(datestr) is str else None
+if SEARCH_QUERY not in st.session_state:
+    st.session_state[SEARCH_QUERY] = {} # clauses
 
 def display_items(items):
     if items is None or len(items) == 0:
         return "nothing to show"
 
-    for row in items.to_dict('records'):
-        row["start_date_fmt"] = datefmt(row["start_date"])
-        row["status_datetime_fmt"] = datefmt(row["status_datetime"])
-        row["created_datetime_fmt"] = datefmt(row["created_datetime"])
-        try:
-            render_work_order(itemcnt, row)
-        except Exception as Ex:
-            itemcnt.write(Ex)
-        
-def display_stats(items):
-    if items is None or len(items) == 0:
-        return "nothing to show"
-
-    with statscnt:
-        "Stats"
-
-        with st.expander("View Data"):
-            items
-
-        cols = st.columns(3)
-
-        groupby = cols[0].selectbox("group by", items.columns)
-        subdivide = cols[1].selectbox("subdivide", items.columns)
-        measure = cols[2].selectbox("measure", items.columns)
-
-        chart = alt.Chart(data=items).mark_bar().encode(
-            color=f"{subdivide}:N",
-            y=f"{groupby}:N",
-            x=f"sum({measure}):Q",
-            text=f"sum({measure})",
-            tooltip=[
-                "area", 
+    columns = ["area",
                 "category_description", 
-                groupby,
-                subdivide,
-                "min(start_date):T",
-                "max(start_date):T",
-                f"sum({measure})", 
-                f"mean({measure})", 
-                "count()"]).transform_filter(alt.datum[groupby] != None)
+                'problem_description',
+                "primary_task_description",
+                "total_cost",
+                "priority",
+                "street",
+                "status_description",
+                "status_datetime",
+                "start_date",
+                "created_datetime"]
 
-        st.altair_chart(chart)
+    column_config = {
+        "area": st.column_config.TextColumn("Area"),
+        "category_description":st.column_config.TextColumn("Category"), 
+        'problem_description':st.column_config.TextColumn("Problem"),
+        "primary_task_description":st.column_config.TextColumn("Primary Task"),
+        "total_cost":st.column_config.NumberColumn("Total Cost", format="dollar"),
+        "street":st.column_config.TextColumn("Street"),
+        "priority":st.column_config.TextColumn("Priority"),
+        "status_description":st.column_config.TextColumn("Status"),
+        "status_datetime":st.column_config.DatetimeColumn("Status As Of", format="localized"),
+        "start_date":st.column_config.DateColumn("Started On", format="localized"),
+        "created_datetime":st.column_config.DatetimeColumn("Created At", format="localized")
+        }
+    
+    st.dataframe(data=items,
+                 key="items", 
+                 use_container_width=True,
+                 hide_index=True,
+                 column_order=columns,
+                 column_config=column_config,
+                 selection_mode="multi-column",
+                 on_select="rerun"
+    )
+
+def timeline(items):
+    encodings = [alt.Row('area'), alt.Color('area')]
+    colSelect = []
+    try:
+        colSelect = st.session_state["items"]["selection"]["columns"]
+        match len(colSelect):
+            case 1: 
+                encodings = [alt.Row(f'{colSelect[0]}:N')]
+            case 2:
+                encodings = [
+                    alt.Row(f'{colSelect[0]}:N'),
+                    alt.Y(f'{colSelect[1]}:N')
+                ]
+            case 3:
+                encodings = [
+                    alt.Row(f'{colSelect[0]}:N'),
+                    alt.Y(f'{colSelect[1]}:N'),
+                    alt.YOffset(f'{colSelect[2]}:N')
+                ]
+            case 4:
+                encodings = [
+                    alt.Row(f'{colSelect[0]}:N'),
+                    alt.Y(f'{colSelect[1]}:N'),
+                    alt.YOffset(f'{colSelect[2]}:N'),
+                    alt.Color(f'{colSelect[3]}:N')
+                ]
+            case default:
+                None
+    except KeyError:
+        None
+    except IndexError:
+        None
+
+    def dateChart(items):
+        return alt.Chart(items).mark_circle().encode(
+            alt.X('start_date:T'),
+            alt.Size('count()').scale(scheme='turbo'),
+            *encodings
+        ).properties(
+            title='Start Date (click and drag to select)', height=50, bounds="flush"
+        ).resolve_scale(
+            y='independent'
+        ).add_params(
+            alt.selection_interval(encodings=['x'], name='timeframe'), alt.selection_point(name='category'))
+    
+    def timeline_select():
+        start_date = "start_date"
+
+        if 'timeline' in st.session_state:
+            selection = st.session_state['timeline']['selection']
+            
+            if 'timeframe' in selection:
+                timeframe_result = selection['timeframe']
+                        
+                if start_date in timeframe_result:
+                    if(len(timeframe_result[start_date]) == 2):
+                        start, end = timeframe_result[start_date]
+                        start /= 1000
+                        end /= 1000
+                        st.session_state['dates'] = [
+                                datetime.fromtimestamp(start), datetime.fromtimestamp(end)
+                                ]
+                
+
+            if 'category' in selection:
+                st.write(selection)
+                for item in selection['category']:
+                    for idx, key in enumerate(item):
+                        if not start_date == key:
+                            st.session_state[SEARCH_QUERY] |= {key:item[key]}
+
+    st.altair_chart(dateChart(items), key='timeline', on_select=timeline_select)
+    
+
+def showQuery(container):
+    if('dates' in st.session_state):
+        container.write("current search filters. click to remove.")
+        [start, end] = st.session_state.dates
+        if(container.button(f"dates: {start:%Y-%m-%d} - {end:%Y-%m-%d}")):
+            del st.session_state.dates
+            st.rerun()
+    else:
+        container.write('showing all dates.')
+        container.write("current search filters. click to remove.")
+
+    search = st.session_state[SEARCH_QUERY]
+    
+    if(len(search) < 1): return
+
+    cols = container.columns(len(search))
+    
+    def delkey(key):
+        del st.session_state[SEARCH_QUERY][key]
+
+    for idx, key in enumerate(search):
+        with(cols[idx]):
+            st.button(
+                label=f"{key}:{search[key]}", 
+                key=f'delete_{key}_search', 
+                on_click=delkey, 
+                kwargs={"key":key})
         
 
-        vega_spec = {
-            "data":items,
-            "hconcat":[
-                {
-                "title":"Total Cost",
-                "layer":[
-                    {
-                        "mark":{"type":"bar","tooltip":True},
-                        "encoding":{
-                            "y":{"field":groupby, "title":groupby},
-                            "x":{"field":"total_cost", "aggregate":"sum", "title":"total cost"}
-                        }
-                    },
-                    {
-                        "mark":{"type":"text","align":"left","xOffset":10},
-                        "encoding":{
-                            "y":{"field":groupby},
-                            "x":{"field":"total_cost","aggregate":"sum"},
-                            "text":{"field":"total_cost","aggregate":"sum"},
-                            "color":"black"
-                        }
-                    }
-                    ],
-            },
-            {
-                "title":"average cost",
-                "mark":"bar",
-                "encoding":{
-                    "y":{"field":groupby, "title":groupby},
-                    "x":{"field":"total_cost", "aggregate":"mean", "title":"average cost"}
-                },
-            }
-            ],
-            "autosize":"fit"
-        }
-
-        # st.vega_lite_chart(spec=vega_spec)
-
-def nextpage():
-    if("page" in st.session_state):
-        st.session_state.page+=1
-    else:
-        st.session_state.page = 0
-
-def prevpage():
-    if("page" in st.session_state):
-        st.session_state.page-=1
-    else:
-        st.session_state.page = 0
 
 try:
-    debugcnt.write("query=")
-    debugcnt.write(' and '.join(query))
-    items = get_work_orders_from_local_db(' and '.join(query))
-    debugcnt.write(items)
-    wocnt, cost = header.columns(2)
-    wocnt.metric("Work orders", value=items.index.size)
     
-    if(items.index.size > 0):
-        if("page" not in st.session_state):
-            st.session_state.page = 0
+    items = get_work_orders_from_local_db(buildQuery())
+    
+    st.metric("Work orders", value=items.index.size)
+    
+    """
+    The currently selected items are displayed below. Click on a column to chart it in the timelines. Ctrl-click to chart multiple columns.
+    """
 
-        prev, perpage, next = itemcnt.columns(3)
-        ipp = perpage.selectbox("Items per page", [10,25,50], label_visibility="collapsed")
-        startidx, endidx = st.session_state.page*ipp, min((st.session_state.page+1)*ipp, items.index.size)
-        prev.button("< Prev", on_click=prevpage, disabled=st.session_state.page==0)
-        next.button("Next >", on_click=nextpage, disabled=endidx>=items.index.size-1)
-       
-        debugcnt.write([startidx, ipp, endidx])
+    display_items(items)
 
-        selected = items.iloc[range(startidx, endidx)]
+    """
+    The selected columns are charted below. Click and drag to select a timeframe. Click on a circle to filter.
+    """
 
-        debugcnt.write(items)
-        debugcnt.write(f"page: {st.session_state.page} startidx:{startidx} endidx{endidx}")
-        debugcnt.write("selected items")
-        debugcnt.write(selected)
+    f"""
+    currently filtered to: **{civic_leagues}**
 
-        display_items(selected)
-        display_stats(items)
+    explore using the filters below.
+
+    """
+
+    showQuery(st)
+
+    timeline(items)
+   
 
 except Exception as ex:
-    itemcnt.error("Error encountered!")
-    debugcnt.write(ex)
+    ex
