@@ -24,6 +24,8 @@ civicleagues = gpd.read_file('Civic_Leagues.geojson')
 
 color_dict = du.assign_random_colors(civicleagues['LEAGUE'])
 
+civicleagues['color'] = civicleagues.apply(lambda row: color_dict[row['LEAGUE']], axis=1)
+
 #viewstate = pdk.ViewState(latitude=36.8508, longitude=-76.2859, zoom=11, pitch=0)
 
 [x1,y1,x2,y2] = civicleagues.total_bounds
@@ -35,14 +37,14 @@ layer = pdk.Layer(
     'GeoJsonLayer',
     civicleagues,
     id="civic_leagues",
-    opacity=0.2,
+    opacity=0.8,
     stroked=True,
     auto_highlight=True,
     filled=True,
     wireframe=True,
     elevation_scale=5,
     pickable=True,
-    get_fill_color='[0, 255, 122]',
+    get_fill_color='color',
     elevation_range=[0, 3000],
     extruded=False,
     coverage=1)
