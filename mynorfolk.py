@@ -21,6 +21,30 @@ st.set_page_config(layout='wide')
 
 mnf = db.get_mnf_postgis_by_cl(st.session_state["selected_civic_league"])
 
+if 'selected_address' in st.session_state:
+    address = st.session_state['selected_address'] 
+    def clear_address():
+        del st.session_state['selected_address']
+
+    st.button(f"selected address: {address}", on_click=clear_address)
+
+    mnf = mnf.query(f"full_address == '{address}'")
+
+if 'timeline_select' in st.session_state and len(st.session_state['timeline_select']) == 2:
+    from datetime import datetime
+    def clear_timeline():
+        del st.session_state['timeline_select']
+
+    start, end = st.session_state['timeline_select']
+
+    datestart = datetime.fromtimestamp(start/1000)
+    dateend = datetime.fromtimestamp(end/1000)
+
+    st.button(f'selected timeline:{datestart.strftime("%D")} to {dateend.strftime("%D")}', on_click=clear_timeline)
+    
+    mnf = mnf[mnf['creation_date'].map(datetime.fromisoformat).between(datestart, dateend)]
+
+
 mnf[['longitude', 'latitude']] = mnf.get_coordinates()
 
 viewstate = du.compute_view(mnf['geometry'].get_coordinates())
@@ -32,9 +56,10 @@ categorycolors = du.assign_random_colors(mnf['service_request_category'])
 mnf['color'] = mnf.apply(lambda row: categorycolors[row['service_request_category']],axis=1)
 
 mnflayer = pdk.Layer(
-    'GridLayer',
+    'ScatterplotLayer',
     mnf,
     id='mnf',
+    gpu_aggregation=True,
     pickable=True,
     auto_highlight=True,
     extruded=True,
@@ -44,21 +69,39 @@ mnflayer = pdk.Layer(
     get_fill_color='color')
 
 deck = pdk.Deck(layers=[mnflayer], 
-                tooltip={"text":"{elevationValue}"},
+                tooltip={"text":"{points}"},
                 initial_view_state=viewstate)
 
-selection = st.pydeck_chart(deck, key="mnf_chart", on_select="rerun")
+def select_address():
+    st.session_state
+    st.session_state['selected_address'] = st.session_state['mnf_chart']['selection']['objects']['mnf'][0]['full_address']
+
+st.pydeck_chart(deck, key="mnf_chart", on_select=select_address)
+
+def select_date_interval():
+    st.session_state['timeline_select'] = st.session_state['timeline_chart']['selection']['param_1']['yearmonth_creation_date']
 
 import altair as alt
-timeline = st.altair_chart(
-    alt.Chart(mnf).mark_area().encode(
-        alt.X('yearmonth(creation_date):T').axis(None), 
-        alt.Y('count()').axis(None),
-        alt.Color('service_request_category').legend(None)
+
+if 'selected_address' in st.session_state:
+    st.altair_chart(
+        alt.Chart(mnf).mark_circle().encode(
+            alt.X('creation_date:T').axis(None),
+            alt.Color('service_request_category').legend(None)
         ).properties(
             height=100
-        ))
+        )
+    )
+else:
+    st.altair_chart(
+        alt.Chart(mnf).mark_area().encode(
+            alt.X('yearmonth(creation_date):T').axis(None), 
+            alt.Y('count()').axis(None),
+            alt.Color('service_request_category').legend(None)
+            ).properties(
+                height=100
+            ).add_params(
+                alt.selection_interval()
+            ), key='timeline_chart', on_select=select_date_interval)
 
-st.write(st.session_state['mnf_chart'])
 
-st.write(mnf)
