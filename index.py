@@ -2,8 +2,8 @@ import streamlit as st
 cltitle = f"Civic League Select ({st.session_state['selected_civic_league']})" if 'selected_civic_league' in st.session_state else "Select Civic League"
 
 page = st.navigation(position="sidebar", pages=[
-        st.Page("orders-search.py", default=True, title="Work Orders"),
-        st.Page("civic_leagues.py", title=cltitle),
+        st.Page("orders-search.py", title="Work Orders"),
+        st.Page("civic_leagues.py", default=True, title=cltitle),
         st.Page("combinedmap.py", title="Map"),
         st.Page("admin.py", title="admin")
     ])
