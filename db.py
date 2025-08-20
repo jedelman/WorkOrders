@@ -20,6 +20,14 @@ join {DB_NAMES.MYNORFOLK} mnf on mnf.full_address = na.full_address
 where cl."LEAGUE" = '{league}';
     """
 
+    def GET_COMPLAINTS_BY_CIVIC_LEAGUE(league):
+        return f"""
+select c.*
+from {DB_NAMES.CIVIC_LEAGUES} cl
+join {DB_NAMES.COMPLAINTS} c on st_contains(cl.geometry, st_point(longitude, latitude, 4326))
+where cl."LEAGUE" = '{league}'
+        """
+
 # Fetch variables
 USER = st.secrets["user"]
 PASSWORD = st.secrets["password"]
@@ -77,6 +85,10 @@ def get_work_orders_from_local_db(query=''):
     return alldata.query(query)
 
 @st.cache_data
+def get_complaints_from_postgis_by_cl(league):
+    return pd.read_sql_query(DB_QUERIES.GET_COMPLAINTS_BY_CIVIC_LEAGUE(league), engine)
+
+@st.cache_data
 def get_complaints_from_local_db(query=''):
     @st.cache_data
     def get_complaint_db():
@@ -108,7 +120,7 @@ def get_mnf_from_socrata(query=''):
 
 @st.cache_data
 def get_mnf(query=''):
-    return gpd.read_postgis('mynorfolk', engine)
+    return gpd.read_postgis('mynorfolk', engine, geom_col="geometry")
 
 @st.cache_data
 def get_mnf_postgis_by_cl(civic_league):

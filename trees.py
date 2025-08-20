@@ -48,7 +48,6 @@ def select_tree():
 selection = cols[0].pydeck_chart(deck,   
                                  key='trees', on_select=select_tree)
 
-
 with cols[1]:
     """
     # Tree inspector

@@ -50,6 +50,15 @@ def refresh_postgis_mynorfolk():
     mnf.to_sql('mynorfolk', db.engine)
     print("upload complete!")
 
+def refresh_complaints():
+    print("getting complaints")
+    complaints = db.get_complaints_from_local_db()
+    print(f"got {len(complaints)}")
+
+    print("uploading complaints")
+    complaints.to_sql(name='complaints', con=db.engine)
+    print("success!")
+
 
 command = sys.argv[1]
 
@@ -66,6 +75,9 @@ match command:
     
     case "refresh-civic-leagues":
         refresh_civic_leagues()
+
+    case "refresh-complaints":
+        refresh_complaints()
 
     case default:
         None

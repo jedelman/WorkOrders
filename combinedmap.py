@@ -19,7 +19,17 @@ def convertgeo(item):
 
 st.set_page_config(layout='wide')
 
-mnf = db.get_mnf_postgis_by_cl(st.session_state["selected_civic_league"])
+league = st.session_state["selected_civic_league"]
+
+mnf = db.get_mnf_postgis_by_cl(league)
+
+complaints = db.get_complaints_from_postgis_by_cl(league)
+
+civic_leagues = re.sub(' and |,', '/ ', st.session_state["selected_civic_league"])
+
+civic_leagues = f'civic_league in ["{civic_leagues}"]'
+
+trees = db.get_trees_from_local_db(civic_leagues)
 
 if 'selected_address' in st.session_state:
     address = st.session_state['selected_address'] 
@@ -55,6 +65,7 @@ categorycolors = du.assign_random_colors(mnf['service_request_category'])
 
 mnf['color'] = mnf.apply(lambda row: categorycolors[row['service_request_category']],axis=1)
 
+
 mnflayer = pdk.Layer(
     'ScatterplotLayer',
     mnf,
@@ -68,13 +79,39 @@ mnflayer = pdk.Layer(
     radius=2,
     get_fill_color='color')
 
-deck = pdk.Deck(layers=[mnflayer], 
-                tooltip={"text":"{points}"},
+complaintslayer = pdk.Layer(
+    'ScatterplotLayer',
+    complaints,
+    id='complaints',
+    gpu_aggregation=True,
+    pickable=True,
+    auto_highlight=True,
+    get_position=['longitude', 'latitude'],
+    radius=2,
+    get_fill_color='[0, 122, 255]'
+)
+
+treelayer = pdk.Layer(
+    'ScatterplotLayer',
+    trees,
+    id='trees',
+    pickable=True,
+    auto_highlight=True,
+    extruded=True,
+    get_elevation='trunk_diameter',
+    get_position=['longitude', 'latitude'],
+    get_fill_color='[0, 255, 122]')
+
+deck = pdk.Deck(layers=[mnflayer, complaintslayer, treelayer], 
+                tooltip=True,
                 initial_view_state=viewstate)
 
 def select_address():
     st.session_state
-    st.session_state['selected_address'] = st.session_state['mnf_chart']['selection']['objects']['mnf'][0]['full_address']
+    try:
+        st.session_state['selected_address'] = st.session_state['mnf_chart']['selection']['objects']['mnf'][0]['full_address']
+    except:
+        None
 
 st.pydeck_chart(deck, key="mnf_chart", on_select=select_address)
 

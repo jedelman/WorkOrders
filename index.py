@@ -6,14 +6,9 @@ page = st.navigation(position="sidebar", pages={
         st.Page("statsonly.py", title="Stats"),
         st.Page("orders-search.py", default=True, title="Search"),
     ],
-    "Budget Browser":[
-        st.Page("expenditures.py", title="Expenditures")
-    ],
     "Maps":[
         st.Page("civic_leagues.py", title=cltitle),
-        st.Page("complaints.py", title="Complaints"),
-        st.Page("mynorfolk.py", title="MyNorfolk Data"),
-        st.Page("trees.py", title="Trees")
+        st.Page("combinedmap.py", title="Map"),
     ]
 })
 

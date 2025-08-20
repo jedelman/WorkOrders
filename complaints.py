@@ -5,21 +5,18 @@ import pydeck.data_utils as du
 import altair as alt
 from shapely.geometry import Point
 import db
-import re
 
 st.set_page_config(layout='wide')
 
 civicleagues = gpd.read_file('Civic_Leagues.geojson')
 
-selected_civic_league = civicleagues.query(f'LEAGUE == "{st.session_state.get("selected_civic_league", "Ghent Neighborhood League")}"')
+league =st.session_state.get("selected_civic_league", "Ghent Neighborhood League")
+
+selected_civic_league = civicleagues.query(f'LEAGUE == "{league}"')
 
 complaints = gpd.GeoDataFrame(db.get_complaints_from_local_db())
 
-mnf = db.get_mnf()
-
-mnf = mnf.clip(selected_civic_league.geometry)
-
-# mnf = mnf.clip(selected_civic_league.geometry)                           
+mnf = db.get_mnf_postgis_by_cl(league)
 
 f"""
 # requests
