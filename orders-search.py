@@ -8,12 +8,6 @@ from render_work_order import render_work_order
 
 civic_leagues = re.sub(' and |,', '/ ', st.session_state["selected_civic_league"])
 
-st.set_page_config(
-    page_title="Norfolk Work Orders Search", 
-    page_icon=":city_sunrise:", 
-    layout="wide", 
-    menu_items={"Report a Bug":"https://github.com/jedelman/WorkOrders/issues/new/choose"},)
-
 f"""
 # Work Orders Search
 """
