@@ -9,4 +9,4 @@ pyogrio
 shapely
 geoarrow-pyarrow
 sqlalchemy
-psycopg2
+psycopg2-binary
