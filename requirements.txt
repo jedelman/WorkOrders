@@ -8,3 +8,6 @@ pyarrow
 pyogrio
 shapely
 geoarrow-pyarrow
+sqlalchemy
+psycopg2-binary
+Authlib

@@ -1,15 +1,60 @@
 import streamlit as st
 import pandas as pd
+import geopandas as gpd
 from sodapy import Socrata
+from sqlalchemy import create_engine
 
-class db_codes:
+class DB_NAMES:
+    ADDRESSES = 'norfolk_addresses'
+    MYNORFOLK = 'mynorfolk'
+    COMPLAINTS = 'complaints'
+    CIVIC_LEAGUES = 'civic_leagues'
+
+class DB_QUERIES:
+    def GET_MNF_BY_CIVIC_LEAGUE(league):
+        return f"""
+select mnf.*, na.geometry
+from {DB_NAMES.CIVIC_LEAGUES} cl
+join {DB_NAMES.ADDRESSES} na on cl.geometry && na.geometry
+join {DB_NAMES.MYNORFOLK} mnf on mnf.full_address = na.full_address
+where cl."LEAGUE" = '{league}';
+    """
+
+    def GET_COMPLAINTS_BY_CIVIC_LEAGUE(league):
+        return f"""
+select c.*
+from {DB_NAMES.CIVIC_LEAGUES} cl
+join {DB_NAMES.COMPLAINTS} c on st_contains(cl.geometry, st_point(longitude, latitude, 4326))
+where cl."LEAGUE" = '{league}'
+        """
+
+# Fetch variables
+USER = st.secrets["user"]
+PASSWORD = st.secrets["password"]
+HOST = st.secrets["host"]
+PORT = st.secrets["port"]
+DBNAME = st.secrets["dbname"]
+
+DATABASE_URL = f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}/{DBNAME}?sslmode=require"
+engine = create_engine(DATABASE_URL)
+
+def get_from_pg(query):
+    return pd.read_sql_query(query, engine)
+
+def get_saved_sessions_from_pg():
+    return get_from_pg("SELECT * from saved_session_views")
+
+class socrata_db_codes:
     WORK_ORDERS = "qzfe-wj25"
     COMPLAINTS = "m9m3-wk2s"
     EXPENDITURES = "mdwe-dquf"
     REVENUES = "id3i-2az4"
     MYNORFOLK = "nbyu-xjez"
-    ADDRESSES = "jagz-9a37"
+    ADDRESSES = "ere7-kake"
     TREES = "cmvv-agyb"
+
+def get_civic_leagues_from_local_file():
+    return gpd.read_file('Civic_Leagues.geojson')
 
 @st.cache_resource
 def get_client():
@@ -30,7 +75,7 @@ def get_db(db_code):
 def get_work_orders_from_local_db(query=''):
     @st.cache_data
     def get_work_order_db():
-        return get_db(db_codes.WORK_ORDERS)
+        return get_db(socrata_db_codes.WORK_ORDERS)
 
 
     alldata = get_work_order_db()
@@ -40,10 +85,14 @@ def get_work_orders_from_local_db(query=''):
     return alldata.query(query)
 
 @st.cache_data
+def get_complaints_from_postgis_by_cl(league):
+    return pd.read_sql_query(DB_QUERIES.GET_COMPLAINTS_BY_CIVIC_LEAGUE(league), engine)
+
+@st.cache_data
 def get_complaints_from_local_db(query=''):
     @st.cache_data
     def get_complaint_db():
-        return get_db(db_codes.COMPLAINTS)
+        return get_db(socrata_db_codes.COMPLAINTS)
 
 
     alldata = get_complaint_db()
@@ -57,7 +106,7 @@ def get_expenditures_from_local_db(query=''):
 
     @st.cache_data
     def get_expenditure_db():
-        return get_db(db_codes.EXPENDITURES)
+        return get_db(socrata_db_codes.EXPENDITURES)
 
     alldata = get_expenditure_db()
     if(query == ''):
@@ -66,37 +115,59 @@ def get_expenditures_from_local_db(query=''):
     return alldata.query(query)
 
 @st.cache_data
-def get_mnf_from_local_db(query=''):
-    
-    @st.cache_data
-    def get_mnf_db():
-        return get_db(db_codes.MYNORFOLK)
-    
-    alldata = get_mnf_db()
-    if(query == ''):
-        return alldata
-    
-    return alldata.query(query)
+def get_mnf_from_socrata(query=''):
+    return get_db(socrata_db_codes.MYNORFOLK)
+
+@st.cache_data
+def get_mnf(query=''):
+    return gpd.read_postgis('mynorfolk', engine, geom_col="geometry")
+
+@st.cache_data
+def get_mnf_postgis_by_cl(civic_league):
+    return gpd.read_postgis(DB_QUERIES.GET_MNF_BY_CIVIC_LEAGUE(civic_league), engine, geom_col='geometry')
+
+@st.cache_data
+def get_addresses():
+    return gpd.read_postgis('norfolk_addresses', geom_col="geometry", con=engine)
 
 @st.cache_data
 def get_addresses_from_local_db(query=''):
-    
     @st.cache_data
-    def get_mnf_db():
-        return get_db(db_codes.ADDRESSES)
+    def get_addr_db():
+        return get_db(socrata_db_codes.ADDRESSES)
+
+
+    import geopandas as gpd
+    import shapely
+    import json
+    import re
+
+    quotefix = re.compile("'")
+
+    addrs = gpd.GeoDataFrame(get_addr_db())
+    addrs = addrs.dropna(subset=['geocoded_column'])
+
+    def convertgeo(item):
+        try:
+            return shapely.geometry.shape(
+                json.loads(
+                    quotefix.sub('"', item)))
+        except Exception as x:
+            print({"ERROR":"ERROR", "item":item, "x":x})
+
+    addrs['geometry'] = addrs['geocoded_column'].apply(convertgeo)
     
-    alldata = get_mnf_db()
     if(query == ''):
-        return alldata
+        return addrs
     
-    return alldata.query(query)
+    return addrs.query(query)
 
 @st.cache_data
 def get_trees_from_local_db(query=''):
 
     @st.cache_data
     def get_tree_db():
-        return get_db(db_codes.TREES)
+        return get_db(socrata_db_codes.TREES)
     
     alldata = get_tree_db()
     if(query == ''):
