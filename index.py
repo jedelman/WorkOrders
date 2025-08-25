@@ -1,26 +1,19 @@
 import streamlit as st
-cltitle = f"Civic League Select ({st.session_state['selected_civic_league']})" if 'selected_civic_league' in st.session_state else "Select Civic League"
+cltitle = f"Civic League Map ({st.session_state['selected_civic_league']})" if 'selected_civic_league' in st.session_state else "Select Civic League"
 
 st.set_page_config(
     page_icon=":city_sunrise:", 
     layout="wide", 
-    menu_items={"Report a Bug":"https://github.com/jedelman/WorkOrders/issues/new/choose"},)
-
-page = st.navigation(position="sidebar", pages=[
-        st.Page("orders-search.py", title="Work Orders"),
-        st.Page("civic_leagues.py", default=True, title=cltitle),
-        st.Page("combinedmap.py", title="Map"),
-        st.Page("admin.py", title="admin")
-    ])
-
+    menu_items={"Report a Bug":"https://github.com/jedelman/WorkOrders/issues/new/choose"})
 
 if 'selected_civic_league' in st.session_state:
-    page.run()
-
+    st.navigation(position="sidebar", pages=[
+            st.Page("civic_leagues.py", default=True, title=cltitle),
+            st.Page("orders-search.py", title="Work Orders"),
+            st.Page("combinedmap.py", title="Map"),
+            st.Page("admin.py", title="admin")
+        ]).run()
 else:
-    if not 'map_forced' in st.session_state:
-        st.session_state['map_forced'] = True
-        st.switch_page("civic_leagues.py")
-    else:
-        del st.session_state['map_forced']
-        page.run()
+    st.navigation(position="sidebar", pages=[
+            st.Page("civic_leagues.py", default=True, title=cltitle)]).run()
+    
