@@ -179,10 +179,11 @@ SEARCH_QUERY = "search_query"
 
 def buildQuery(extras = []):
     import re
+
     civic_leagues = re.sub(' and |,', '/ ', st.session_state["selected_civic_league"])
 
     q = [
-        f"{key}.str.contains('{value}', case=False, na=False)"
+        f"{key} in ({value})"
         for key, value in 
         st.session_state[SEARCH_QUERY].items()]
 
