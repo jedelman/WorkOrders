@@ -67,12 +67,10 @@ def timeline(items):
             encodings.append(alt.Y(f'{colSelect[0]}:N').sort('-size'))
         else:
             encodings.append(alt.Y('area:N'))
-    except KeyError as x:
-        "Key Error"
-        x
-    except IndexError as x:
-        "Index Error"
-        x
+    except KeyError:
+        print("key error")
+    except IndexError:
+        print("index error")
 
     def dateChart(items):
         return alt.Chart(items).mark_circle().encode(
