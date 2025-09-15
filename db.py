@@ -2,47 +2,6 @@ import streamlit as st
 import pandas as pd
 import geopandas as gpd
 from sodapy import Socrata
-from sqlalchemy import create_engine
-
-class DB_NAMES:
-    ADDRESSES = 'norfolk_addresses'
-    MYNORFOLK = 'mynorfolk'
-    COMPLAINTS = 'complaints'
-    CIVIC_LEAGUES = 'civic_leagues'
-
-class DB_QUERIES:
-    def GET_MNF_BY_CIVIC_LEAGUE(league):
-        return f"""
-select mnf.*, na.geometry
-from {DB_NAMES.CIVIC_LEAGUES} cl
-join {DB_NAMES.ADDRESSES} na on cl.geometry && na.geometry
-join {DB_NAMES.MYNORFOLK} mnf on mnf.full_address = na.full_address
-where cl."LEAGUE" = '{league}';
-    """
-
-    def GET_COMPLAINTS_BY_CIVIC_LEAGUE(league):
-        return f"""
-select c.*
-from {DB_NAMES.CIVIC_LEAGUES} cl
-join {DB_NAMES.COMPLAINTS} c on st_contains(cl.geometry, st_point(longitude, latitude, 4326))
-where cl."LEAGUE" = '{league}'
-        """
-
-# Fetch variables
-USER = st.secrets["user"]
-PASSWORD = st.secrets["password"]
-HOST = st.secrets["host"]
-PORT = st.secrets["port"]
-DBNAME = st.secrets["dbname"]
-
-DATABASE_URL = f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}/{DBNAME}?sslmode=require"
-engine = create_engine(DATABASE_URL)
-
-def get_from_pg(query):
-    return pd.read_sql_query(query, engine)
-
-def get_saved_sessions_from_pg():
-    return get_from_pg("SELECT * from saved_session_views")
 
 class socrata_db_codes:
     WORK_ORDERS = "qzfe-wj25"
@@ -53,22 +12,23 @@ class socrata_db_codes:
     ADDRESSES = "ere7-kake"
     TREES = "cmvv-agyb"
 
-def get_civic_leagues_from_local_file():
-    return gpd.read_file('Civic_Leagues.geojson')
-
 @st.cache_resource
 def get_client():
     return Socrata("data.norfolk.gov", st.secrets["app_token"])
 
 @st.cache_data
-def get_db(db_code):
-    localfile = f"data/{db_code}.csv"
-    try:
-        all = pd.read_csv(localfile)
-    except OSError:
+def get_db(db_code, query=''):
+    if query == '':
         all = pd.DataFrame(get_client().get_all(db_code))
-        all.to_csv(localfile)
-    
+    else:
+        all = pd.DataFrame(get_client().get(db_code, where=query))
+    return all
+
+@st.cache_data
+def work_orders_fulltext_search(query, filter=''):
+    all = pd.DataFrame(get_client().get(socrata_db_codes.WORK_ORDERS, q=query))
+    if not filter == '':
+        all = all.query(filter)
     return all
 
 @st.cache_data
@@ -83,10 +43,6 @@ def get_work_orders_from_local_db(query=''):
         return alldata
     
     return alldata.query(query)
-
-@st.cache_data
-def get_complaints_from_postgis_by_cl(league):
-    return pd.read_sql_query(DB_QUERIES.GET_COMPLAINTS_BY_CIVIC_LEAGUE(league), engine)
 
 @st.cache_data
 def get_complaints_from_local_db(query=''):
@@ -115,20 +71,8 @@ def get_expenditures_from_local_db(query=''):
     return alldata.query(query)
 
 @st.cache_data
-def get_mnf_from_socrata(query=''):
-    return get_db(socrata_db_codes.MYNORFOLK)
-
-@st.cache_data
 def get_mnf(query=''):
-    return gpd.read_postgis('mynorfolk', engine, geom_col="geometry")
-
-@st.cache_data
-def get_mnf_postgis_by_cl(civic_league):
-    return gpd.read_postgis(DB_QUERIES.GET_MNF_BY_CIVIC_LEAGUE(civic_league), engine, geom_col='geometry')
-
-@st.cache_data
-def get_addresses():
-    return gpd.read_postgis('norfolk_addresses', geom_col="geometry", con=engine)
+    return get_db(socrata_db_codes.MYNORFOLK)
 
 @st.cache_data
 def get_addresses_from_local_db(query=''):
@@ -163,24 +107,28 @@ def get_addresses_from_local_db(query=''):
     return addrs.query(query)
 
 @st.cache_data
-def get_trees_from_local_db(query=''):
+def get_trees_from_local_db(query='', filter=''):
 
     @st.cache_data
     def get_tree_db():
         return get_db(socrata_db_codes.TREES)
     
-    alldata = get_tree_db()
     if(query == ''):
+        alldata = get_tree_db()
+    else:
+        alldata = get_client().get(socrata_db_codes.TREES, q=query)
+
+    if(filter == ''):
         return alldata
-    
-    return alldata.query(query)
+    else:
+        return alldata.query(filter)
 
 SEARCH_QUERY = "search_query"
 
 def buildQuery(extras = []):
     import re
 
-    civic_leagues = re.sub(' and |,', '/ ', st.session_state["selected_civic_league"])
+    civic_leagues = re.sub(' and |,', '/ ', st.session_state.get("selected_civic_league", "Ghent Neighborhood League"))
 
     q = [
         f"{key} in ({value})"

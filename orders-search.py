@@ -1,15 +1,20 @@
 import streamlit as st
 import altair as alt
 import re
-from db import get_work_orders_from_local_db, buildQuery
+from db import get_work_orders_from_local_db, buildQuery, work_orders_fulltext_search
 from datetime import datetime, timedelta
 from render_work_order import render_work_order
 
-civic_leagues = re.sub(' and |,', '/ ', st.session_state["selected_civic_league"])
+st.set_page_config(layout='wide')
+
+
+civic_leagues = re.sub(' and |,', '/ ', "Ghent Neighborhood League") #hardcoded for demo
 
 f"""
 # Work Orders Search
 """
+
+
 
 SEARCH_QUERY = "search_query"
 
@@ -20,7 +25,8 @@ def display_items(items):
     if items is None or len(items) == 0:
         return "nothing to show"
 
-    columns = ["area",
+    columns = ["work_order_number",
+                "area",
                 "category_description", 
                 'problem_description',
                 "primary_task_description",
@@ -57,16 +63,11 @@ def display_items(items):
     )
 
 def timeline(items):
-    encodings = [
-        alt.Color('area'),
-        ]
-    colSelect = []
+    encodings = [alt.Y('area:N').sort('-size'), alt.Color('area:N')]
     try:
         colSelect = st.session_state["items"]["selection"]["columns"]
-        if len(colSelect) > 0:
-            encodings.append(alt.Y(f'{colSelect[0]}:N').sort('-size'))
-        else:
-            encodings.append(alt.Y('area:N'))
+        encodings = [alt.Y(f'{colSelect[0]}:N').sort('-size'),
+                     alt.Color(f'{colSelect[0]}:N')]
     except KeyError:
         print("key error")
     except IndexError:
@@ -74,9 +75,10 @@ def timeline(items):
 
     def dateChart(items):
         return alt.Chart(items).mark_circle().encode(
-            alt.X('start_date:T'),
+            alt.X('start_date:T').scale(nice="year"),
             alt.X2('status_datetime:T'),
             alt.Size('sum(total_cost):Q'),
+            alt.Tooltip(['work_order_number', 'total_cost', 'start_date:T', 'area', 'problem_description', 'primary_task_description']),
             *encodings
         ).properties(
             title='Start Date (click and drag to select)'
@@ -110,8 +112,9 @@ def timeline(items):
     
 
 def showQuery(container):
+    container.write("current search filters. click to remove.")
+
     if('dates' in st.session_state):
-        container.write("current search filters. click to remove.")
         [start, end] = st.session_state.dates
         if(container.button(f"dates: {start:%Y-%m-%d} - {end:%Y-%m-%d}")):
             del st.session_state.dates
@@ -120,7 +123,6 @@ def showQuery(container):
     search = st.session_state[SEARCH_QUERY]
     
     if(len(search) < 1): return
-    container.write("current search filters. click to remove.")
 
     cols = container.columns(len(search))
     
@@ -138,16 +140,19 @@ def showQuery(container):
 
 
 try:
+    query = st.text_input("full text search", key="query", width="stretch")
+
+    filter = buildQuery()
+
+    if query != '':
+        items = work_orders_fulltext_search(query, filter)
+    else:
+        items = get_work_orders_from_local_db(filter)
     
-    items = get_work_orders_from_local_db(buildQuery())
-    
-    st.metric("Work orders", value=items.index.size)
+    col1, col2 = st.columns(2)
+    col1.metric("Work orders", value=items.index.size)
+    col2.metric("Total Cost", value=f"${items["total_cost"].map(float).sum():,.2f}")
 
-
-    f"""
-    currently filtered to: **{civic_leagues}**
-
-    """
 
     showQuery(st)
 
