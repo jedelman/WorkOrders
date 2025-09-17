@@ -5,7 +5,7 @@ from db import get_work_orders_from_local_db, buildQuery, work_orders_fulltext_s
 from datetime import datetime, timedelta
 from render_work_order import render_work_order
 
-st.set_page_config(layout='wide')
+st.set_page_config(layout='wide', menu_items={"Report a Bug":"https://github.com/jedelman/WorkOrders/issues/new/choose"})
 
 
 civic_leagues = re.sub(' and |,', '/ ', "Ghent Neighborhood League") #hardcoded for demo
