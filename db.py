@@ -3,6 +3,9 @@ import pandas as pd
 import geopandas as gpd
 from sodapy import Socrata
 
+civic_leagues = gpd.read_file('Civic_Leagues.geojson')
+gnl_geom = civic_leagues.query('LEAGUE=="Ghent Neighborhood League"')['geometry'][35]
+
 class socrata_db_codes:
     WORK_ORDERS = "qzfe-wj25"
     COMPLAINTS = "m9m3-wk2s"
@@ -11,6 +14,7 @@ class socrata_db_codes:
     MYNORFOLK = "nbyu-xjez"
     ADDRESSES = "ere7-kake"
     TREES = "cmvv-agyb"
+    PERMITS = "fahm-yuh4"
 
 @st.cache_resource
 def get_client():
@@ -27,7 +31,7 @@ def get_db(db_code, query=''):
 @st.cache_data
 def work_orders_fulltext_search(query, filter=''):
     all = pd.DataFrame(get_client().get(socrata_db_codes.WORK_ORDERS, q=query))
-    if not filter == '':
+    if all.index.size > 0 and not filter == '':
         all = all.query(filter)
     return all
 
@@ -45,17 +49,16 @@ def get_work_orders_from_local_db(query=''):
     return alldata.query(query)
 
 @st.cache_data
-def get_complaints_from_local_db(query=''):
-    @st.cache_data
-    def get_complaint_db():
-        return get_db(socrata_db_codes.COMPLAINTS)
+def get_complaints(query='', filter=''):
+    if(query != ''):
+        data = get_client().get(socrata_db_codes.COMPLAINTS, q=query, where=f"within_polygon(make_point(latitude, longitude), '{gnl_geom}')")
+    else:
+        data = get_client().get(socrata_db_codes.COMPLAINTS, where=f"within_polygon(make_point(latitude, longitude), '{gnl_geom}')")
 
-
-    alldata = get_complaint_db()
-    if(query == ''):
-        return alldata
-    
-    return alldata.query(query)
+    if(filter == ''):
+        return pd.DataFrame(data)
+    else:
+        return pd.DataFrame(data).query(filter)
 
 @st.cache_data
 def get_expenditures_from_local_db(query=''):
@@ -72,7 +75,10 @@ def get_expenditures_from_local_db(query=''):
 
 @st.cache_data
 def get_mnf(query=''):
-    return get_db(socrata_db_codes.MYNORFOLK)
+    if(query != ''):
+        return pd.DataFrame(get_client().get(socrata_db_codes.MYNORFOLK, q=query))
+    else:
+        return pd.DataFrame(get_client().get(socrata_db_codes.MYNORFOLK))
 
 @st.cache_data
 def get_addresses_from_local_db(query=''):
@@ -146,3 +152,11 @@ def buildQuery(extras = []):
 
     query = ' and '.join(q)
     return query
+
+@st.cache_data
+def permits(query=''):
+    return pd.DataFrame(get_client().get(
+        socrata_db_codes.PERMITS, 
+        q=query, 
+        where=f"within_polygon(make_point(latitude, longitude), '{gnl_geom}')"))
+
